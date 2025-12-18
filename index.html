@@ -31,6 +31,49 @@
     th { color:#444; font-weight: 700; background: #fafafa; }
     .pill { display:inline-block; padding:2px 8px; border:1px solid #ddd; border-radius: 999px; background:#fff; font-size: 11px; }
     .split { display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center; }
+    .btnPrimary { border-color:#222; font-weight:700; }
+    .btnGhost { background:#fafafa; }
+    .hidden { display:none !important; }
+
+    /* Focus mode for Recording */
+    .focusWrap { display:none; }
+    .focusOn .row { display:none; }
+    .focusOn .focusWrap { display:block; }
+    .focusHeader { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+    .focusTarget { font-size: 34px; font-weight: 900; letter-spacing: 1px; }
+    .progressBarWrap { width: 100%; max-width: 520px; height: 14px; border-radius: 999px; border:1px solid #ddd; background:#fafafa; overflow:hidden; }
+    .progressBar { height: 100%; width: 0%; background:#222; }
+    .focusControls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; width: 100%; max-width: 520px; }
+    .focusKpis { width: 100%; max-width: 520px; display:flex; gap:10px; flex-wrap:wrap; }
+    .focusKpis .pill { padding:6px 10px; font-size: 12px; }
+    .focusSmall { width: 100%; max-width: 520px; }
+
+    /* Modal */
+    .modalOverlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display:none; align-items:center; justify-content:center;
+      padding: 16px; z-index: 9999;
+    }
+    .modal {
+      width: 100%; max-width: 520px;
+      background:#fff; border-radius: 16px;
+      border: 1px solid #e6e6e6;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+      padding: 14px;
+    }
+    .modalTitle { font-size: 16px; font-weight: 800; margin: 0 0 8px 0; }
+    .modalRow { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .modalActions { display:flex; gap:10px; justify-content:flex-end; margin-top: 12px; }
+    .typeCardWrap { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .typeCard {
+      border: 1px solid #ddd; border-radius: 14px; padding: 12px;
+      cursor:pointer; user-select:none;
+      background:#fafafa;
+    }
+    .typeCard.active { border-color:#222; background:#fff; }
+    .typeCard h3 { margin:0 0 6px 0; font-size: 14px; }
+    .typeCard p { margin:0; font-size: 12px; color:#555; }
   </style>
 </head>
 <body>
@@ -50,15 +93,15 @@
       <div class="inline">
         <span class="badge">Profile: <span id="profileBadge">—</span></span>
         <span class="badge">Type: <span id="typeBadge">—</span></span>
-        <span class="badge">App: <span id="appVer">1.3</span></span>
+        <span class="badge">App: <span id="appVer">1.4</span></span>
       </div>
 
       <div class="inline">
         <label class="small" style="margin:0;">Switch profile</label>
         <select id="profileSelect"></select>
-        <button id="newProfileBtn">New profile</button>
-        <button id="editProfileBtn">Edit type</button>
-        <button id="deleteProfileBtn" title="Deletes only locally on this device">Delete profile</button>
+        <button id="newProfileBtn" class="btnPrimary">New profile</button>
+        <button id="editProfileBtn">Edit profile</button>
+        <button id="deleteProfileBtn" title="Deletes only locally on this device">Delete</button>
       </div>
     </div>
 
@@ -69,7 +112,69 @@
     </div>
   </div>
 
-  <div class="row" style="margin-top:12px;">
+  <!-- Focus Mode (Recording) -->
+  <div class="focusWrap" style="margin-top:12px;">
+    <div class="panel">
+      <div class="focusHeader">
+        <div class="inline">
+          <span class="badge">Recording Focus</span>
+          <span class="badge">Profile: <b id="focusProfile">—</b></span>
+        </div>
+        <div class="inline">
+          <button id="focusToggleBtn" class="btnGhost">Exit focus</button>
+          <button id="focusAdvancedBtn">Advanced</button>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="muted">Camera</div>
+      <video id="videoFocus" playsinline autoplay muted></video>
+
+      <div class="inline" style="margin-top:10px;">
+        <button id="startBtnF" class="btnPrimary">Start</button>
+        <button id="stopBtnF" disabled>Stop</button>
+        <span class="badge" id="statusF">Idle</span>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="focusSmall">
+        <div class="focusTarget">TARGET: <span id="focusTarget">A</span></div>
+        <div class="muted">Progress: <b id="focusProgress">0/30</b></div>
+
+        <div class="progressBarWrap" style="margin-top:8px;">
+          <div class="progressBar" id="focusBar"></div>
+        </div>
+      </div>
+
+      <div class="focusControls" style="margin-top:10px;">
+        <div class="inline">
+          <button id="recPrevBtnF">Prev</button>
+          <button id="recNextBtnF">Next</button>
+          <button id="recResetLabelBtnF">Reset this label</button>
+        </div>
+        <div class="inline">
+          <button id="recStartBtnF" class="btnPrimary">Start auto-capture</button>
+          <button id="recStopBtnF" disabled>Stop</button>
+          <button id="recManualBtnF">Capture now</button>
+        </div>
+      </div>
+
+      <div class="focusKpis" style="margin-top:10px;">
+        <span id="qHandF" class="pill">Hand: —</span>
+        <span id="qSizeF" class="pill">Size: —</span>
+        <span id="qMotionF" class="pill">Motion: —</span>
+      </div>
+
+      <div class="mono" style="margin-top:8px;">
+        Hold the pose steady. Auto-capture triggers when hand is detected, size is in range, and motion is stable.
+      </div>
+    </div>
+  </div>
+
+  <!-- Main (Advanced) UI -->
+  <div class="row" id="mainRow" style="margin-top:12px;">
     <div class="panel">
       <div class="muted">Camera</div>
       <video id="video" playsinline autoplay muted></video>
@@ -121,7 +226,7 @@
 
       <div class="hr"></div>
 
-      <!-- COMMON DATA TOOLS (Export/Import/Merge) -->
+      <!-- COMMON DATA TOOLS -->
       <div id="dataTools">
         <div class="inline">
           <button id="exportBtn">Export JSON</button>
@@ -161,8 +266,16 @@
         </div>
 
         <div class="inline" style="margin-top:10px;">
+          <label class="small" style="margin:0;">Strictness</label>
+          <select id="recPreset">
+            <option value="normal">Normal</option>
+            <option value="relaxed">Relaxed</option>
+            <option value="strict">Strict</option>
+          </select>
+
           <button id="recStartBtn">Start auto-capture</button>
           <button id="recStopBtn" disabled>Stop auto-capture</button>
+          <button id="recManualBtn">Capture now</button>
           <button id="recResetLabelBtn" title="Clears only current label samples">Reset this label</button>
           <span class="badge">Per-label goal: <b>30</b></span>
         </div>
@@ -184,6 +297,10 @@
             <label class="small">Hand size max (bbox area)</label>
             <input id="recMaxArea" type="number" step="0.01" min="0.05" max="0.8" value="0.35" />
           </div>
+          <div>
+            <label class="small">Motion threshold</label>
+            <input id="recMotionThresh" type="number" step="0.005" min="0.010" max="0.120" value="0.035" />
+          </div>
         </div>
 
         <div class="inline" style="margin-top:10px;">
@@ -197,7 +314,7 @@
         </div>
       </div>
 
-      <!-- DEMO/TEST ONLY NOTE -->
+      <!-- DEMO NOTE -->
       <div id="demoNote" class="mono" style="display:none; margin-top:10px;">
         Recording is disabled in this profile. Switch to a Recording profile to collect samples.
       </div>
@@ -229,7 +346,36 @@
     </div>
   </div>
 
-  <!-- TF.js + kNN (global) -->
+  <!-- Modal: Create/Edit Profile -->
+  <div class="modalOverlay" id="profileModalOverlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal">
+      <div class="modalTitle" id="profileModalTitle">Create profile</div>
+      <div class="muted tiny">Profiles are saved locally on this device. No server, no cloud.</div>
+
+      <div class="hr"></div>
+
+      <label class="small">Profile name</label>
+      <input id="profileNameInput" type="text" placeholder="e.g., Anna, Pawel Demo" style="width:100%;" />
+
+      <div class="typeCardWrap">
+        <div class="typeCard" id="typeCardRecord" tabindex="0">
+          <h3>Recording</h3>
+          <p>Collect samples. Shows Recording Focus and Recorder tools.</p>
+        </div>
+        <div class="typeCard" id="typeCardDemo" tabindex="0">
+          <h3>Demo/Test</h3>
+          <p>Presentation + testing. Recorder disabled to avoid accidental recording.</p>
+        </div>
+      </div>
+
+      <div class="modalActions">
+        <button id="profileModalCancel" class="btnGhost">Cancel</button>
+        <button id="profileModalSave" class="btnPrimary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TF.js + kNN -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.2/dist/knn-classifier.min.js"></script>
 
@@ -237,23 +383,20 @@
     import { FilesetResolver, HandLandmarker, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
     // =========================
-    // Configuration
+    // Config
     // =========================
-    const APP_VERSION = "1.3";
-
-    // Static letters only (exclude J/Z motion)
-    const LABELS = [
-      "A","B","C","D","E",
-      "F","G","H","I",
-      "K","L","M","N","O",
-      "P","Q","R","S","T",
-      "U","V","W","X","Y"
-    ];
-
+    const APP_VERSION = "1.4";
+    const LABELS = ["A","B","C","D","E","F","G","H","I","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y"];
     const REC_GOAL_PER_LABEL = 30;
 
+    const PRESETS = {
+      relaxed: { holdMs: 320, cooldownMs: 240, minArea: 0.06, maxArea: 0.45, motionThresh: 0.055 },
+      normal:  { holdMs: 450, cooldownMs: 300, minArea: 0.08, maxArea: 0.35, motionThresh: 0.035 },
+      strict:  { holdMs: 650, cooldownMs: 380, minArea: 0.10, maxArea: 0.30, motionThresh: 0.022 }
+    };
+
     // =========================
-    // UI refs
+    // UI refs (advanced)
     // =========================
     document.getElementById("appVer").textContent = APP_VERSION;
 
@@ -270,7 +413,6 @@
     const rawLabelEl = document.getElementById("rawLabel");
     const confEl = document.getElementById("conf");
     const handInfoEl = document.getElementById("handInfo");
-
     const transcriptEl = document.getElementById("transcript");
 
     const exportBtn = document.getElementById("exportBtn");
@@ -291,10 +433,9 @@
     const profileBadgeEl = document.getElementById("profileBadge");
     const typeBadgeEl = document.getElementById("typeBadge");
 
-    // Record UI
+    // Record UI (advanced)
     const recordControls = document.getElementById("recordControls");
     const demoNote = document.getElementById("demoNote");
-
     const recTargetEl = document.getElementById("recTarget");
     const recProgressEl = document.getElementById("recProgress");
     const recStartBtn = document.getElementById("recStartBtn");
@@ -302,11 +443,14 @@
     const recPrevBtn = document.getElementById("recPrevBtn");
     const recNextBtn = document.getElementById("recNextBtn");
     const recResetLabelBtn = document.getElementById("recResetLabelBtn");
+    const recManualBtn = document.getElementById("recManualBtn");
 
+    const recPresetEl = document.getElementById("recPreset");
     const recHoldMsEl = document.getElementById("recHoldMs");
     const recCooldownMsEl = document.getElementById("recCooldownMs");
     const recMinAreaEl = document.getElementById("recMinArea");
     const recMaxAreaEl = document.getElementById("recMaxArea");
+    const recMotionThreshEl = document.getElementById("recMotionThresh");
 
     const qHandEl = document.getElementById("qHand");
     const qSizeEl = document.getElementById("qSize");
@@ -314,9 +458,46 @@
 
     const countsTbody = document.querySelector("#countsTable tbody");
 
-    function setStatus(s) { statusEl.textContent = s; }
+    // Focus UI (recording)
+    const bodyEl = document.body;
+    const focusWrap = document.querySelector(".focusWrap");
+    const focusProfileEl = document.getElementById("focusProfile");
+    const focusToggleBtn = document.getElementById("focusToggleBtn");
+    const focusAdvancedBtn = document.getElementById("focusAdvancedBtn");
 
-    // HTTPS hint (mobile camera often needs HTTPS; localhost is OK)
+    const videoFocusEl = document.getElementById("videoFocus");
+    const startBtnF = document.getElementById("startBtnF");
+    const stopBtnF = document.getElementById("stopBtnF");
+    const statusF = document.getElementById("statusF");
+
+    const focusTargetEl = document.getElementById("focusTarget");
+    const focusProgressEl = document.getElementById("focusProgress");
+    const focusBarEl = document.getElementById("focusBar");
+
+    const recPrevBtnF = document.getElementById("recPrevBtnF");
+    const recNextBtnF = document.getElementById("recNextBtnF");
+    const recResetLabelBtnF = document.getElementById("recResetLabelBtnF");
+    const recStartBtnF = document.getElementById("recStartBtnF");
+    const recStopBtnF = document.getElementById("recStopBtnF");
+    const recManualBtnF = document.getElementById("recManualBtnF");
+
+    const qHandF = document.getElementById("qHandF");
+    const qSizeF = document.getElementById("qSizeF");
+    const qMotionF = document.getElementById("qMotionF");
+
+    // Modal UI
+    const modalOverlay = document.getElementById("profileModalOverlay");
+    const modalTitle = document.getElementById("profileModalTitle");
+    const modalNameInput = document.getElementById("profileNameInput");
+    const typeCardRecord = document.getElementById("typeCardRecord");
+    const typeCardDemo = document.getElementById("typeCardDemo");
+    const modalCancel = document.getElementById("profileModalCancel");
+    const modalSave = document.getElementById("profileModalSave");
+
+    function setStatus(s) { statusEl.textContent = s; statusF.textContent = s; }
+    function setFocusOn(on) { bodyEl.classList.toggle("focusOn", !!on); }
+
+    // HTTPS hint
     (function showHttpsHint() {
       const httpsHint = document.getElementById("httpsHint");
       const isLocalhost = ["localhost","127.0.0.1","[::1]"].includes(location.hostname);
@@ -324,10 +505,10 @@
     })();
 
     // =========================
-    // Local profile storage (soft login)
+    // Local Profiles storage
     // =========================
-    const LS_KEY_INDEX = "asl_profiles_index_v2";
-    const LS_KEY_ACTIVE = "asl_active_profile_v2";
+    const LS_KEY_INDEX = "asl_profiles_index_v3";
+    const LS_KEY_ACTIVE = "asl_active_profile_v3";
 
     function nowISO() { return new Date().toISOString(); }
     function randId() { return Math.random().toString(36).slice(2, 10) + "-" + Date.now().toString(36); }
@@ -354,7 +535,7 @@
       let list = loadProfilesIndex();
       if (list.length === 0) {
         const id = randId();
-        list = [{ id, name: "Default Demo", type: "demo", createdAt: nowISO() }];
+        list = [{ id, name: "Default Demo", type: "demo", createdAt: nowISO(), focusDefault: false }];
         saveProfilesIndex(list);
         localStorage.setItem(LS_KEY_ACTIVE, id);
       }
@@ -363,8 +544,7 @@
 
     function getActiveProfileId() { return localStorage.getItem(LS_KEY_ACTIVE); }
     function setActiveProfileId(id) { localStorage.setItem(LS_KEY_ACTIVE, id); }
-
-    function profileDataKey(id) { return `asl_profile_data_v2_${id}`; }
+    function profileDataKey(id) { return `asl_profile_state_v3_${id}`; }
 
     function loadProfileData(id) {
       try {
@@ -379,51 +559,15 @@
       localStorage.setItem(profileDataKey(id), JSON.stringify(obj));
     }
 
-    function deleteProfileData(id) {
-      localStorage.removeItem(profileDataKey(id));
-    }
-
-    function rebuildProfileSelect(list, activeId) {
-      profileSelect.innerHTML = "";
-      for (const p of list) {
-        const opt = document.createElement("option");
-        opt.value = p.id;
-        opt.textContent = `${p.name} (${p.type === "record" ? "Recording" : "Demo/Test"})`;
-        if (p.id === activeId) opt.selected = true;
-        profileSelect.appendChild(opt);
-      }
-    }
-
-    function getProfileById(id) {
-      return profiles.find(p => p.id === id) || null;
-    }
-
-    function setProfileBadges() {
-      const p = getProfileById(activeProfileId);
-      profileBadgeEl.textContent = p?.name || "—";
-      typeBadgeEl.textContent = p?.type === "record" ? "Recording" : "Demo/Test";
-    }
-
-    function applyProfileTypeUI() {
-      const p = getProfileById(activeProfileId);
-      const isRecord = p?.type === "record";
-
-      recordControls.style.display = isRecord ? "block" : "none";
-      demoNote.style.display = isRecord ? "none" : "block";
-
-      // In recording profiles, transcript is optional; we keep it but don't auto-emit by default
-      transcriptEl.placeholder = isRecord
-        ? "Transcript is mainly for demo/testing. Recording focuses on collecting samples."
-        : "Letters will appear here (Demo/Test profiles).";
-    }
+    function deleteProfileData(id) { localStorage.removeItem(profileDataKey(id)); }
 
     // =========================
-    // kNN classifier
+    // kNN
     // =========================
     const knn = knnClassifier.create();
 
     // =========================
-    // MediaPipe Tasks Vision
+    // MediaPipe
     // =========================
     let handLandmarker = null;
     let drawingUtils = null;
@@ -436,21 +580,18 @@
     let lastDominantLandmarks = null;
     let lastDominantHandedness = null;
 
-    // Stabilization history
     let predHistory = [];
     let lastEmitted = { label: null, t: 0 };
 
-    // Recorder state
     let recLabelIndex = 0;
     let recIsRunning = false;
     let recStableSince = 0;
     let recLastCaptureAt = 0;
     let recPrevVec = null;
 
-    // Autosave throttle
     let autosaveTimer = null;
 
-    // Active profile
+    // Profiles
     let profiles = ensureAtLeastOneProfile();
     let activeProfileId = getActiveProfileId() || profiles[0].id;
     if (!profiles.some(p => p.id === activeProfileId)) {
@@ -458,11 +599,136 @@
       setActiveProfileId(activeProfileId);
     }
 
+    function getProfileById(id) { return profiles.find(p => p.id === id) || null; }
+
+    function rebuildProfileSelect() {
+      profileSelect.innerHTML = "";
+      for (const p of profiles) {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = `${p.name} (${p.type === "record" ? "Recording" : "Demo/Test"})`;
+        if (p.id === activeProfileId) opt.selected = true;
+        profileSelect.appendChild(opt);
+      }
+    }
+
+    function setProfileBadges() {
+      const p = getProfileById(activeProfileId);
+      profileBadgeEl.textContent = p?.name || "—";
+      typeBadgeEl.textContent = p?.type === "record" ? "Recording" : "Demo/Test";
+      focusProfileEl.textContent = p?.name || "—";
+    }
+
+    function applyProfileTypeUI() {
+      const p = getProfileById(activeProfileId);
+      const isRecord = p?.type === "record";
+
+      recordControls.style.display = isRecord ? "block" : "none";
+      demoNote.style.display = isRecord ? "none" : "block";
+
+      transcriptEl.placeholder = isRecord
+        ? "Transcript is mainly for demo/testing. Recording focuses on collecting samples."
+        : "Letters will appear here (Demo/Test profiles).";
+
+      // Focus default: ON for recording profiles
+      const shouldFocus = isRecord ? true : false;
+      setFocusOn(shouldFocus);
+    }
+
     // =========================
-    // Vector normalization
+    // Modal logic (Create/Edit)
+    // =========================
+    let modalMode = "create"; // "create" | "edit"
+    let modalSelectedType = "demo";
+
+    function setTypeCards(type) {
+      modalSelectedType = type;
+      typeCardRecord.classList.toggle("active", type === "record");
+      typeCardDemo.classList.toggle("active", type === "demo");
+    }
+
+    function openProfileModal(mode) {
+      modalMode = mode;
+      const p = getProfileById(activeProfileId);
+
+      if (mode === "create") {
+        modalTitle.textContent = "Create profile";
+        modalNameInput.value = "";
+        setTypeCards("record"); // default for new profiles (recommended)
+      } else {
+        modalTitle.textContent = "Edit profile";
+        modalNameInput.value = p?.name || "";
+        setTypeCards(p?.type === "record" ? "record" : "demo");
+      }
+
+      modalOverlay.style.display = "flex";
+      modalOverlay.setAttribute("aria-hidden", "false");
+      setTimeout(() => modalNameInput.focus(), 0);
+    }
+
+    function closeProfileModal() {
+      modalOverlay.style.display = "none";
+      modalOverlay.setAttribute("aria-hidden", "true");
+    }
+
+    typeCardRecord.addEventListener("click", () => setTypeCards("record"));
+    typeCardDemo.addEventListener("click", () => setTypeCards("demo"));
+    typeCardRecord.addEventListener("keydown", (e) => { if (e.key === "Enter") setTypeCards("record"); });
+    typeCardDemo.addEventListener("keydown", (e) => { if (e.key === "Enter") setTypeCards("demo"); });
+
+    modalCancel.addEventListener("click", closeProfileModal);
+    modalOverlay.addEventListener("click", (e) => { if (e.target === modalOverlay) closeProfileModal; });
+
+    modalSave.addEventListener("click", () => {
+      const name = (modalNameInput.value || "").trim().slice(0, 40);
+      if (!name) { alert("Please enter a profile name."); return; }
+
+      if (modalMode === "create") {
+        const id = randId();
+        profiles.push({ id, name, type: modalSelectedType, createdAt: nowISO(), focusDefault: modalSelectedType === "record" });
+        saveProfilesIndex(profiles);
+
+        activeProfileId = id;
+        setActiveProfileId(id);
+
+        // Clear in-memory and persist empty profile state
+        knn.clearAllClasses();
+        transcriptEl.value = "";
+        scheduleAutosave(true);
+
+        rebuildProfileSelect();
+        setProfileBadges();
+        applyProfileTypeUI();
+        loadProfileIntoMemory(activeProfileId);
+      } else {
+        const p = getProfileById(activeProfileId);
+        if (!p) return;
+        p.name = name;
+        p.type = modalSelectedType;
+        p.focusDefault = (modalSelectedType === "record");
+        saveProfilesIndex(profiles);
+
+        // stop recorder
+        recIsRunning = false;
+        recStartBtn.disabled = false;
+        recStopBtn.disabled = true;
+        recStartBtnF.disabled = false;
+        recStopBtnF.disabled = true;
+
+        rebuildProfileSelect();
+        setProfileBadges();
+        applyProfileTypeUI();
+        scheduleAutosave(true);
+      }
+
+      closeProfileModal();
+    });
+
+    // =========================
+    // Vectors
     // =========================
     function landmarksToNormalizedVector(lm) {
-      const base = lm[0]; // wrist
+      const base = lm[0];
       const dx1 = lm[5].x - base.x, dy1 = lm[5].y - base.y, dz1 = (lm[5].z ?? 0) - (base.z ?? 0);
       const dx2 = lm[9].x - base.x, dy2 = lm[9].y - base.y, dz2 = (lm[9].z ?? 0) - (base.z ?? 0);
       const s1 = Math.hypot(dx1, dy1, dz1);
@@ -519,19 +785,13 @@
         counts.set(p.label, (counts.get(p.label) || 0) + 1);
         confSum.set(p.label, (confSum.get(p.label) || 0) + p.conf);
       }
-
       if (considered === 0) return { label: null, conf: 0, ratio: 0 };
 
-      let bestLabel = null;
-      let bestCount = -1;
-      let bestAvgConf = -1;
-
+      let bestLabel = null, bestCount = -1, bestAvgConf = -1;
       for (const [label, c] of counts.entries()) {
         const avg = (confSum.get(label) || 0) / c;
         if (c > bestCount || (c === bestCount && avg > bestAvgConf)) {
-          bestLabel = label;
-          bestCount = c;
-          bestAvgConf = avg;
+          bestLabel = label; bestCount = c; bestAvgConf = avg;
         }
       }
 
@@ -546,7 +806,7 @@
 
       const p = getProfileById(activeProfileId);
       const isRecord = p?.type === "record";
-      if (isRecord) return; // do not emit transcript in Recording profiles (keeps focus clean)
+      if (isRecord) return; // keep Recording clean
 
       const now = Date.now();
       const debounceMs = Math.max(150, Math.min(4000, parseInt(emitDebounceEl.value || "900", 10)));
@@ -559,7 +819,7 @@
     }
 
     // =========================
-    // Dataset JSON (with metadata)
+    // Dataset JSON + meta
     // =========================
     function datasetToJSON(dataset) {
       const out = {};
@@ -614,9 +874,7 @@
       };
     }
 
-    // =========================
-    // Merge datasets
-    // =========================
+    // Merge helpers
     function concatTensors(tensors) {
       if (tensors.length === 0) return null;
       if (tensors.length === 1) return tensors[0];
@@ -626,9 +884,8 @@
     function mergeDatasetObjects(datasetObjs) {
       const merged = {};
       const labels = new Set();
-      for (const ds of datasetObjs) {
-        for (const k of Object.keys(ds || {})) labels.add(k);
-      }
+      for (const ds of datasetObjs) for (const k of Object.keys(ds || {})) labels.add(k);
+
       for (const label of labels) {
         const tensors = [];
         for (const ds of datasetObjs) {
@@ -699,7 +956,7 @@
     }
 
     // =========================
-    // Render + predict
+    // Rendering + prediction
     // =========================
     function ensureCanvasSize() {
       const w = videoEl.videoWidth || 640;
@@ -708,6 +965,22 @@
         canvasEl.width = w;
         canvasEl.height = h;
       }
+    }
+
+    function drawHands(result) {
+      ensureCanvasSize();
+      ctx.save();
+      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+      ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+
+      const lms = result.landmarks || [];
+      if (lms.length > 0) {
+        for (const lm of lms) {
+          drawingUtils.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { lineWidth: 3 });
+          drawingUtils.drawLandmarks(lm, { lineWidth: 2 });
+        }
+      }
+      ctx.restore();
     }
 
     async function predictFromLandmarks(lm) {
@@ -737,33 +1010,17 @@
       tensor.dispose && tensor.dispose();
     }
 
-    function drawHands(result) {
-      ensureCanvasSize();
-      ctx.save();
-      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-      ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-
-      const lms = result.landmarks || [];
-      if (lms.length > 0) {
-        for (const lm of lms) {
-          drawingUtils.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { lineWidth: 3 });
-          drawingUtils.drawLandmarks(lm, { lineWidth: 2 });
-        }
-      }
-      ctx.restore();
-    }
-
     // =========================
     // Recorder helpers
     // =========================
-    function getRecTargetLabel() { return LABELS[recLabelIndex] || LABELS[0]; }
-
     function setQualityPill(el, state, text) {
       el.textContent = text;
       el.className = "pill";
       if (state === "ok") el.classList.add("ok");
       if (state === "bad") el.classList.add("bad");
     }
+
+    function getRecTargetLabel() { return LABELS[recLabelIndex] || LABELS[0]; }
 
     function getDatasetCountsFromKnn() {
       const ds = knn.getClassifierDataset();
@@ -807,8 +1064,17 @@
       const label = getRecTargetLabel();
       const counts = getDatasetCountsFromKnn();
       const n = counts[label] || 0;
+
+      // advanced
       recTargetEl.textContent = label;
       recProgressEl.textContent = `${n}/${REC_GOAL_PER_LABEL}`;
+
+      // focus
+      focusTargetEl.textContent = label;
+      focusProgressEl.textContent = `${n}/${REC_GOAL_PER_LABEL}`;
+      const pct = Math.max(0, Math.min(100, (n / REC_GOAL_PER_LABEL) * 100));
+      focusBarEl.style.width = `${pct}%`;
+
       refreshCountsTable();
       sampleCountEl.textContent = knn.getNumExamples();
     }
@@ -818,6 +1084,7 @@
       const newDs = {};
       for (const k of Object.keys(ds)) if (k !== label) newDs[k] = ds[k];
       knn.setClassifierDataset(newDs);
+
       predHistory = [];
       lastEmitted = { label: null, t: 0 };
       scheduleAutosave();
@@ -835,6 +1102,55 @@
         recPrevVec = null;
       }
     }
+
+    function applyPreset(presetKey) {
+      const p = PRESETS[presetKey] || PRESETS.normal;
+      recHoldMsEl.value = String(p.holdMs);
+      recCooldownMsEl.value = String(p.cooldownMs);
+      recMinAreaEl.value = String(p.minArea);
+      recMaxAreaEl.value = String(p.maxArea);
+      recMotionThreshEl.value = String(p.motionThresh);
+      recPresetEl.value = presetKey;
+      scheduleAutosave();
+    }
+
+    recPresetEl.addEventListener("change", () => applyPreset(recPresetEl.value));
+
+    // =========================
+    // Auto-capture and manual capture
+    // =========================
+    function canCaptureNow() {
+      if (!lastDominantLandmarks) return { ok:false, reason:"No hand detected" };
+
+      const bboxArea = bboxAreaFromLandmarks(lastDominantLandmarks);
+      const minArea = Math.max(0.02, Math.min(0.5, parseFloat(recMinAreaEl.value || "0.08")));
+      const maxArea = Math.max(minArea + 0.01, Math.min(0.8, parseFloat(recMaxAreaEl.value || "0.35")));
+      const sizeOk = bboxArea >= minArea && bboxArea <= maxArea;
+      if (!sizeOk) return { ok:false, reason:"Hand size out of range" };
+
+      return { ok:true, reason:"OK" };
+    }
+
+    function captureOneSampleNow() {
+      const p = getProfileById(activeProfileId);
+      if (p?.type !== "record") { alert("Switch to a Recording profile to collect samples."); return; }
+      if (!rafId) { alert("Start the camera first."); return; }
+
+      const check = canCaptureNow();
+      if (!check.ok) { alert("Cannot capture now: " + check.reason); return; }
+
+      const vec = landmarksToNormalizedVector(lastDominantLandmarks);
+      const tensor = tf.tensor(vec, [1, vec.length]);
+      knn.addExample(tensor, getRecTargetLabel());
+      tensor.dispose && tensor.dispose();
+
+      updateRecorderHeader();
+      scheduleAutosave();
+      maybeAutoAdvanceIfDone();
+    }
+
+    recManualBtn.addEventListener("click", captureOneSampleNow);
+    recManualBtnF.addEventListener("click", captureOneSampleNow);
 
     // =========================
     // Main loop
@@ -857,10 +1173,14 @@
         confEl.textContent = "—";
         handInfoEl.textContent = "—";
 
-        // Recorder quality
         setQualityPill(qHandEl, "bad", "Hand: not detected");
         setQualityPill(qSizeEl, "bad", "Size: —");
         setQualityPill(qMotionEl, "bad", "Motion: —");
+
+        setQualityPill(qHandF, "bad", "Hand: not detected");
+        setQualityPill(qSizeF, "bad", "Size: —");
+        setQualityPill(qMotionF, "bad", "Motion: —");
+
         recStableSince = 0;
         recPrevVec = null;
       } else {
@@ -871,7 +1191,6 @@
 
         await predictFromLandmarks(lastDominantLandmarks);
 
-        // Recorder auto-capture only if active profile is Recording and recorder is running
         const p = getProfileById(activeProfileId);
         const isRecord = p?.type === "record";
 
@@ -879,25 +1198,29 @@
           const bboxArea = bboxAreaFromLandmarks(lastDominantLandmarks);
           const minArea = Math.max(0.02, Math.min(0.5, parseFloat(recMinAreaEl.value || "0.08")));
           const maxArea = Math.max(minArea + 0.01, Math.min(0.8, parseFloat(recMaxAreaEl.value || "0.35")));
+          const motionThresh = Math.max(0.010, Math.min(0.120, parseFloat(recMotionThreshEl.value || "0.035")));
 
           const vec = landmarksToNormalizedVector(lastDominantLandmarks);
           const motion = recPrevVec ? vecDelta(vec, recPrevVec) : Infinity;
           recPrevVec = vec;
 
-          setQualityPill(qHandEl, "ok", "Hand: detected");
           const sizeOk = bboxArea >= minArea && bboxArea <= maxArea;
-          setQualityPill(qSizeEl, sizeOk ? "ok" : "bad", sizeOk ? `Size: ok (${bboxArea.toFixed(3)})` : `Size: adjust (${bboxArea.toFixed(3)})`);
+          const motionOk = motion !== Infinity && motion < motionThresh;
 
-          const motionOk = motion !== Infinity && motion < 0.035;
+          setQualityPill(qHandEl, "ok", "Hand: detected");
+          setQualityPill(qSizeEl, sizeOk ? "ok" : "bad", sizeOk ? `Size: ok (${bboxArea.toFixed(3)})` : `Size: adjust (${bboxArea.toFixed(3)})`);
           setQualityPill(qMotionEl, motionOk ? "ok" : "bad", `Motion: ${motionOk ? "stable" : "moving"} (${motion === Infinity ? "—" : motion.toFixed(4)})`);
+
+          setQualityPill(qHandF, "ok", "Hand: detected");
+          setQualityPill(qSizeF, sizeOk ? "ok" : "bad", sizeOk ? `Size: ok (${bboxArea.toFixed(3)})` : `Size: adjust (${bboxArea.toFixed(3)})`);
+          setQualityPill(qMotionF, motionOk ? "ok" : "bad", `Motion: ${motionOk ? "stable" : "moving"} (${motion === Infinity ? "—" : motion.toFixed(4)})`);
 
           if (recIsRunning) {
             const holdMs = Math.max(200, Math.min(1200, parseInt(recHoldMsEl.value || "450", 10)));
             const cooldownMs = Math.max(150, Math.min(2000, parseInt(recCooldownMsEl.value || "300", 10)));
-
             const nowMs = Date.now();
-            const stableNow = sizeOk && motionOk;
 
+            const stableNow = sizeOk && motionOk;
             if (stableNow) {
               if (!recStableSince) recStableSince = nowMs;
               const held = nowMs - recStableSince;
@@ -937,6 +1260,7 @@
 
     async function start() {
       if (rafId) return;
+
       setStatus("Starting…");
       if (!handLandmarker) await initHandLandmarker();
 
@@ -950,11 +1274,14 @@
       }
 
       videoEl.srcObject = stream;
-      await videoEl.play();
+      videoFocusEl.srcObject = stream;
+
+      await videoEl.play().catch(()=>{});
+      await videoFocusEl.play().catch(()=>{});
 
       setStatus("Running");
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
+      startBtn.disabled = true; stopBtn.disabled = false;
+      startBtnF.disabled = true; stopBtnF.disabled = false;
 
       rafId = requestAnimationFrame(step);
     }
@@ -967,11 +1294,13 @@
         stream.getTracks().forEach(t => t.stop());
         stream = null;
       }
+
       videoEl.srcObject = null;
+      videoFocusEl.srcObject = null;
 
       setStatus("Idle");
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
+      startBtn.disabled = false; stopBtn.disabled = true;
+      startBtnF.disabled = false; stopBtnF.disabled = true;
 
       predHistory = [];
       lastEmitted = { label: null, t: 0 };
@@ -983,22 +1312,25 @@
       handInfoEl.textContent = "—";
 
       recIsRunning = false;
-      recStartBtn.disabled = false;
-      recStopBtn.disabled = true;
+      recStartBtn.disabled = false; recStopBtn.disabled = true;
+      recStartBtnF.disabled = false; recStopBtnF.disabled = true;
       recStableSince = 0;
       recPrevVec = null;
     }
 
-    startBtn.addEventListener("click", async () => {
+    async function startClicked() {
       try { await start(); }
       catch (err) {
         console.error(err);
         setStatus("Camera error");
         alert("Could not start camera.\n\n" + humanReadableGetUserMediaError(err) + "\n\nTips:\n• Use HTTPS (or localhost)\n• Allow camera permission for this site\n• Refresh and try again");
       }
-    });
+    }
 
+    startBtn.addEventListener("click", startClicked);
+    startBtnF.addEventListener("click", startClicked);
     stopBtn.addEventListener("click", stop);
+    stopBtnF.addEventListener("click", stop);
 
     // =========================
     // Export / Import / Merge
@@ -1022,7 +1354,6 @@
         const ds = jsonToDataset(data);
         knn.setClassifierDataset(ds);
         sampleCountEl.textContent = knn.getNumExamples();
-        refreshCountsTable();
         updateRecorderHeader();
         scheduleAutosave();
         alert("Samples imported into current profile.");
@@ -1072,64 +1403,78 @@
     });
 
     // =========================
-    // Recorder controls (only meaningful for Recording profiles)
+    // Recorder controls (advanced + focus)
     // =========================
-    recStartBtn.addEventListener("click", () => {
+    function startAutoCapture() {
       const p = getProfileById(activeProfileId);
-      if (p?.type !== "record") {
-        alert("Switch to a Recording profile to collect samples.");
-        return;
-      }
-      if (!rafId) {
-        alert("Start the camera first (click Start).");
-        return;
-      }
+      if (p?.type !== "record") { alert("Switch to a Recording profile to collect samples."); return; }
+      if (!rafId) { alert("Start the camera first (click Start)."); return; }
+
       recIsRunning = true;
-      recStartBtn.disabled = true;
-      recStopBtn.disabled = false;
+      recStartBtn.disabled = true; recStopBtn.disabled = false;
+      recStartBtnF.disabled = true; recStopBtnF.disabled = false;
+
       recStableSince = 0;
       recLastCaptureAt = 0;
       recPrevVec = null;
-    });
+    }
 
-    recStopBtn.addEventListener("click", () => {
+    function stopAutoCapture() {
       recIsRunning = false;
-      recStartBtn.disabled = false;
-      recStopBtn.disabled = true;
+      recStartBtn.disabled = false; recStopBtn.disabled = true;
+      recStartBtnF.disabled = false; recStopBtnF.disabled = true;
+
       recStableSince = 0;
       recPrevVec = null;
-    });
+    }
 
-    recPrevBtn.addEventListener("click", () => {
+    function prevLabel() {
       recLabelIndex = Math.max(0, recLabelIndex - 1);
       updateRecorderHeader();
-      recStableSince = 0;
-      recPrevVec = null;
-    });
+      recStableSince = 0; recPrevVec = null;
+    }
 
-    recNextBtn.addEventListener("click", () => {
+    function nextLabel() {
       recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
       updateRecorderHeader();
-      recStableSince = 0;
-      recPrevVec = null;
-    });
+      recStableSince = 0; recPrevVec = null;
+    }
 
-    recResetLabelBtn.addEventListener("click", () => {
+    function resetCurrentLabel() {
       const p = getProfileById(activeProfileId);
-      if (p?.type !== "record") {
-        alert("Switch to a Recording profile to reset label samples.");
-        return;
-      }
+      if (p?.type !== "record") { alert("Switch to a Recording profile to reset label samples."); return; }
       const label = getRecTargetLabel();
       const ok = confirm(`Reset samples for label "${label}" in current profile?`);
       if (!ok) return;
       clearLabelSamples(label);
+    }
+
+    recStartBtn.addEventListener("click", startAutoCapture);
+    recStopBtn.addEventListener("click", stopAutoCapture);
+    recPrevBtn.addEventListener("click", prevLabel);
+    recNextBtn.addEventListener("click", nextLabel);
+    recResetLabelBtn.addEventListener("click", resetCurrentLabel);
+
+    recStartBtnF.addEventListener("click", startAutoCapture);
+    recStopBtnF.addEventListener("click", stopAutoCapture);
+    recPrevBtnF.addEventListener("click", prevLabel);
+    recNextBtnF.addEventListener("click", nextLabel);
+    recResetLabelBtnF.addEventListener("click", resetCurrentLabel);
+
+    // Focus toggles
+    focusToggleBtn.addEventListener("click", () => setFocusOn(false));
+    focusAdvancedBtn.addEventListener("click", () => setFocusOn(false));
+
+    // If profile is recording, re-enter focus quickly
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && bodyEl.classList.contains("focusOn")) setFocusOn(false);
     });
 
     // =========================
     // Autosave per profile
     // =========================
-    function scheduleAutosave() {
+    function scheduleAutosave(immediate = false) {
+      if (immediate) { persistCurrentProfile(); return; }
       if (autosaveTimer) return;
       autosaveTimer = setTimeout(() => {
         autosaveTimer = null;
@@ -1142,15 +1487,25 @@
         const ds = knn.getClassifierDataset();
         const json = datasetToJSON(ds);
         const p = getProfileById(activeProfileId);
+
         const payload = {
-          schema: "asl_profile_state_v2",
+          schema: "asl_profile_state_v3",
           savedAt: nowISO(),
           profileId: activeProfileId,
           profileName: p?.name || "Unknown",
           profileType: p?.type || "demo",
           appVersion: APP_VERSION,
           transcript: transcriptEl.value || "",
-          dataset: json
+          dataset: json,
+          recorder: {
+            recLabelIndex,
+            preset: recPresetEl.value || "normal",
+            holdMs: parseInt(recHoldMsEl.value || "450", 10),
+            cooldownMs: parseInt(recCooldownMsEl.value || "300", 10),
+            minArea: parseFloat(recMinAreaEl.value || "0.08"),
+            maxArea: parseFloat(recMaxAreaEl.value || "0.35"),
+            motionThresh: parseFloat(recMotionThreshEl.value || "0.035")
+          }
         };
         saveProfileData(activeProfileId, payload);
       } catch (err) {
@@ -1175,92 +1530,39 @@
       }
       if (payload?.transcript) transcriptEl.value = payload.transcript;
 
+      // Restore recorder settings if present
+      const r = payload?.recorder;
+      if (r) {
+        recLabelIndex = Math.max(0, Math.min(LABELS.length - 1, parseInt(r.recLabelIndex ?? 0, 10)));
+        recPresetEl.value = r.preset || "normal";
+        recHoldMsEl.value = String(r.holdMs ?? 450);
+        recCooldownMsEl.value = String(r.cooldownMs ?? 300);
+        recMinAreaEl.value = String(r.minArea ?? 0.08);
+        recMaxAreaEl.value = String(r.maxArea ?? 0.35);
+        recMotionThreshEl.value = String(r.motionThresh ?? 0.035);
+      } else {
+        // default to normal
+        applyPreset("normal");
+      }
+
       sampleCountEl.textContent = knn.getNumExamples();
-      refreshCountsTable();
       updateRecorderHeader();
     }
 
     // =========================
     // Profile CRUD
     // =========================
-    function promptProfileName() {
-      const name = prompt("Profile name (e.g., Anna, Pawel-demo):");
-      if (!name) return null;
-      const trimmed = name.trim();
-      return trimmed ? trimmed.slice(0, 40) : null;
-    }
-
-    function promptProfileType(defaultType = "demo") {
-      const ans = prompt('Profile type: type "record" for Recording, or "demo" for Demo/Test:', defaultType);
-      if (!ans) return null;
-      const t = ans.trim().toLowerCase();
-      if (t !== "record" && t !== "demo") return null;
-      return t;
-    }
-
-    newProfileBtn.addEventListener("click", () => {
-      const name = promptProfileName();
-      if (!name) return;
-
-      const type = promptProfileType("demo");
-      if (!type) {
-        alert('Invalid type. Use "record" or "demo".');
-        return;
-      }
-
-      const id = randId();
-      profiles.push({ id, name, type, createdAt: nowISO() });
-      saveProfilesIndex(profiles);
-
-      activeProfileId = id;
-      setActiveProfileId(id);
-
-      rebuildProfileSelect(profiles, activeProfileId);
-      setProfileBadges();
-      applyProfileTypeUI();
-
-      knn.clearAllClasses();
-      transcriptEl.value = "";
-      persistCurrentProfile();
-      refreshCountsTable();
-      updateRecorderHeader();
-      alert(`Profile created: ${name} (${type === "record" ? "Recording" : "Demo/Test"})`);
-    });
-
-    editProfileBtn.addEventListener("click", () => {
-      const p = getProfileById(activeProfileId);
-      if (!p) return;
-
-      const type = promptProfileType(p.type || "demo");
-      if (!type) {
-        alert('Invalid type. Use "record" or "demo".');
-        return;
-      }
-
-      // Stop recorder when changing type
-      recIsRunning = false;
-      recStartBtn.disabled = false;
-      recStopBtn.disabled = true;
-
-      p.type = type;
-      saveProfilesIndex(profiles);
-      rebuildProfileSelect(profiles, activeProfileId);
-      setProfileBadges();
-      applyProfileTypeUI();
-      persistCurrentProfile();
-      alert(`Profile type updated: ${p.name} → ${type === "record" ? "Recording" : "Demo/Test"}`);
-    });
+    newProfileBtn.addEventListener("click", () => openProfileModal("create"));
+    editProfileBtn.addEventListener("click", () => openProfileModal("edit"));
 
     deleteProfileBtn.addEventListener("click", () => {
-      if (profiles.length <= 1) {
-        alert("You must keep at least one profile.");
-        return;
-      }
+      if (profiles.length <= 1) { alert("You must keep at least one profile."); return; }
       const p = getProfileById(activeProfileId);
       const ok = confirm(`Delete profile "${p?.name || "Unknown"}" from this device? This cannot be undone.`);
       if (!ok) return;
 
       recIsRunning = false;
+      stopAutoCapture();
 
       deleteProfileData(activeProfileId);
       profiles = profiles.filter(x => x.id !== activeProfileId);
@@ -1269,7 +1571,7 @@
       activeProfileId = profiles[0].id;
       setActiveProfileId(activeProfileId);
 
-      rebuildProfileSelect(profiles, activeProfileId);
+      rebuildProfileSelect();
       setProfileBadges();
       applyProfileTypeUI();
       loadProfileIntoMemory(activeProfileId);
@@ -1281,9 +1583,7 @@
       activeProfileId = profileSelect.value;
       setActiveProfileId(activeProfileId);
 
-      recIsRunning = false;
-      recStartBtn.disabled = false;
-      recStopBtn.disabled = true;
+      stopAutoCapture();
 
       setProfileBadges();
       applyProfileTypeUI();
@@ -1291,19 +1591,31 @@
     });
 
     // =========================
-    // Initial boot
+    // Boot
     // =========================
-    rebuildProfileSelect(profiles, activeProfileId);
+    rebuildProfileSelect();
     setProfileBadges();
     applyProfileTypeUI();
     loadProfileIntoMemory(activeProfileId);
     updateRecorderHeader();
-    sampleCountEl.textContent = knn.getNumExamples();
 
-    window.addEventListener("beforeunload", () => {
-      try { persistCurrentProfile(); } catch {}
-    });
+    // Focus should show the camera element correctly; reuse the same stream and mirror
+    // (No extra work required; start() assigns stream to both videos.)
 
+    // If profile is Recording, auto-enter focus (recommended)
+    const p0 = getProfileById(activeProfileId);
+    setFocusOn(p0?.type === "record");
+
+    // Keep recorder preset synced (default normal)
+    if (!recPresetEl.value) recPresetEl.value = "normal";
+    if (!PRESETS[recPresetEl.value]) recPresetEl.value = "normal";
+
+    // If current values not set, apply preset
+    if (!recHoldMsEl.value || !recCooldownMsEl.value || !recMinAreaEl.value || !recMaxAreaEl.value || !recMotionThreshEl.value) {
+      applyPreset(recPresetEl.value);
+    }
+
+    window.addEventListener("beforeunload", () => { try { persistCurrentProfile(); } catch {} });
   </script>
 </body>
 </html>
