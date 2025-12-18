@@ -3,12 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ASL Fingerspelling MVP (Local Profiles + Recorder)</title>
+  <title>ASL MVP (Profiles + Recorder Stable Capture)</title>
   <style>
-    :root {
-      --bg:#fff; --fg:#111; --muted:#555; --border:#ddd; --soft:#fafafa;
-      --primary:#111; --danger:#b00020;
-    }
+    :root { --bg:#fff; --fg:#111; --muted:#555; --border:#ddd; --soft:#fafafa; --danger:#b00020; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; color:var(--fg); background:var(--bg); }
     h1 { margin: 0 0 8px 0; }
     .muted { color: var(--muted); }
@@ -31,13 +28,13 @@
     .tabBtn.active { background:#111; color:#fff; border-color:#111; }
     .hide { display:none !important; }
 
-    /* Desktop: panels side-by-side, mobile safe (stack by default) */
+    /* Desktop: panels side-by-side; mobile: stack */
     @media (min-width: 1100px) {
       .row { flex-wrap: nowrap; }
       .panel { flex: 0 0 calc(50% - 8px); }
     }
 
-    /* Modal */
+    /* Modal overlays */
     .modalOverlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.55);
@@ -48,7 +45,7 @@
       padding: 18px;
     }
     .modal {
-      width: min(560px, 100%);
+      width: min(580px, 100%);
       background: #fff;
       border-radius: 14px;
       border: 1px solid var(--border);
@@ -66,10 +63,10 @@
   </style>
 </head>
 <body>
-  <h1>ASL Fingerspelling MVP (Local Profiles + Recorder)</h1>
+  <h1>ASL MVP (Local Profiles + Recorder)</h1>
   <div class="muted">
-    Local inference (no cloud). MediaPipe Tasks Vision HandLandmarker + TF.js kNN.
-    Use <b>Profiles</b> to separate datasets (your demo vs your friend's recording).
+    Local inference (no cloud). MediaPipe HandLandmarker + TF.js kNN for Demo.
+    Recorder uses <b>stability-based auto-capture</b> (does not depend on kNN).
   </div>
 
   <div class="tabs">
@@ -78,7 +75,6 @@
     <button class="tabBtn" id="tabProfilesBtn">Profiles</button>
   </div>
 
-  <!-- Profiles / Mode bar -->
   <div class="inline" style="margin: 6px 0 14px 0;">
     <span class="badge">Active profile: <b id="activeProfileName">—</b></span>
     <span class="badge">Mode: <b id="activeProfileMode">—</b></span>
@@ -121,9 +117,7 @@
         </div>
 
         <div class="hr"></div>
-        <div class="mono">
-          Demo tip: Use this tab to test recognition quality. Recorder tab is for clean sample capture.
-        </div>
+        <div class="mono">Demo: kNN recognition + stabilization + debounce. Use this for testing/presentation.</div>
       </div>
 
       <div class="panel">
@@ -193,19 +187,24 @@
           <span class="badge">Target: <b id="recTargetLabel">—</b></span>
           <span class="badge">Progress: <b id="recProgress">0/30</b></span>
           <span class="badge">Auto-capture: <b id="recAutoState">OFF</b></span>
-          <span class="badge">Stable raw: <b id="recRawLabel">—</b></span>
-          <span class="badge">Conf: <b id="recConf">—</b></span>
+          <span class="badge">Motion: <b id="recMotion">—</b></span>
         </div>
 
         <div class="hr"></div>
-        <div class="grid">
+
+        <div class="inline" style="margin-top:2px;">
+          <label class="small" style="margin:0;">Preset</label>
+          <select id="recPreset">
+            <option value="fast">Fast</option>
+            <option value="normal" selected>Normal</option>
+            <option value="strict">Strict</option>
+          </select>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
           <div>
             <label class="small">Goal per letter</label>
             <input id="recGoal" type="number" min="5" max="200" value="30" />
-          </div>
-          <div>
-            <label class="small">Min confidence</label>
-            <input id="recMinConf" type="number" step="0.05" min="0" max="1" value="0.70" />
           </div>
           <div>
             <label class="small">Hold stable (ms)</label>
@@ -215,12 +214,16 @@
             <label class="small">Cooldown between samples (ms)</label>
             <input id="recCooldownMs" type="number" min="50" max="3000" value="220" />
           </div>
+          <div>
+            <label class="small">Stability threshold</label>
+            <input id="recStabThresh" type="number" step="0.01" min="0.01" max="0.50" value="0.08" />
+          </div>
         </div>
 
         <div class="hr"></div>
         <div class="mono">
-          Recorder rules: one dominant hand; auto-capture adds a sample only when the prediction is stable enough and held for the required time.
-          After <b>30/30</b>, recording stops and you must confirm the next letter (Stop & Confirm).
+          Recorder: auto-capture adds a sample for the selected target letter when your hand is stable enough (low motion) for the hold time.
+          After goal is reached (e.g. 30/30) it stops and shows Stop & Confirm before moving on.
         </div>
       </div>
 
@@ -247,7 +250,7 @@
         </div>
 
         <div class="mono" style="margin-top:8px;">
-          Tip: Use <b>your friend</b> profile in Recording mode. Use your profile in Demo mode for presentation/testing.
+          Tip: Use your friend profile in Recording mode. Use your profile in Demo mode.
         </div>
       </div>
     </div>
@@ -256,13 +259,7 @@
   <!-- PROFILES TAB -->
   <div id="tabProfiles" class="hide">
     <div class="panel">
-      <div class="muted">Profiles (Local)</div>
-      <div class="hr"></div>
-
-      <div class="inline">
-        <span class="badge">Profiles stored in this browser (LocalStorage)</span>
-      </div>
-
+      <div class="muted">Profiles (LocalStorage)</div>
       <div class="hr"></div>
 
       <div class="inline">
@@ -287,6 +284,7 @@
           </select>
         </div>
       </div>
+
       <div class="inline" style="margin-top:10px;">
         <button id="profileCreateBtn">Create profile</button>
         <span class="badge">Active samples: <span id="activeSamplesKpi">0</span></span>
@@ -295,7 +293,7 @@
       <div class="hr"></div>
 
       <div class="mono">
-        Note: Profiles are per-device/per-browser. To move between laptops, use Export JSON on Recorder/Demo and Import on the other device.
+        Profiles are per-device/per-browser. Move datasets via Export/Import JSON.
       </div>
     </div>
   </div>
@@ -304,7 +302,7 @@
   <div class="modalOverlay" id="profileModal">
     <div class="modal">
       <div class="modalTitle">Switch / Create Profile</div>
-      <div class="muted">Pick an existing profile or create a new one. Mode controls which tab is intended (Recording vs Demo).</div>
+      <div class="muted">Mode decides intended workflow: Recording or Demo.</div>
       <div class="hr"></div>
 
       <div class="inline">
@@ -328,14 +326,15 @@
           </select>
         </div>
       </div>
-      <div class="inline" style="margin-top:10px;">
+
+      <div class="inline" style="margin-top:10px; justify-content:flex-end;">
         <button id="profileModalCreateBtn">Create & Activate</button>
         <button id="profileModalCloseBtn" class="btnGhost">Close</button>
       </div>
     </div>
   </div>
 
-  <!-- Recorder Advance Overlay (Option A) -->
+  <!-- Recorder Advance Overlay (Stop & Confirm) -->
   <div class="modalOverlay" id="advanceOverlay">
     <div class="modal">
       <div class="modalTitle">Letter completed</div>
@@ -355,16 +354,13 @@
   <script type="module">
     import { FilesetResolver, HandLandmarker, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
-    // -----------------------------
     // Tabs
-    // -----------------------------
     const tabDemoBtn = document.getElementById("tabDemoBtn");
     const tabRecorderBtn = document.getElementById("tabRecorderBtn");
     const tabProfilesBtn = document.getElementById("tabProfilesBtn");
     const tabDemo = document.getElementById("tabDemo");
     const tabRecorder = document.getElementById("tabRecorder");
     const tabProfiles = document.getElementById("tabProfiles");
-
     function setActiveTab(name) {
       tabDemoBtn.classList.toggle("active", name === "demo");
       tabRecorderBtn.classList.toggle("active", name === "recorder");
@@ -373,84 +369,68 @@
       tabRecorder.classList.toggle("hide", name !== "recorder");
       tabProfiles.classList.toggle("hide", name !== "profiles");
     }
-
     tabDemoBtn.addEventListener("click", () => setActiveTab("demo"));
     tabRecorderBtn.addEventListener("click", () => setActiveTab("recorder"));
     tabProfilesBtn.addEventListener("click", () => setActiveTab("profiles"));
 
-    // -----------------------------
-    // UI refs (top bar)
-    // -----------------------------
+    // Top bar
     const activeProfileNameEl = document.getElementById("activeProfileName");
     const activeProfileModeEl = document.getElementById("activeProfileMode");
     const switchProfileBtn = document.getElementById("switchProfileBtn");
     const statusEl = document.getElementById("status");
     function setStatus(s) { statusEl.textContent = s; }
 
-    // -----------------------------
     // Demo refs
-    // -----------------------------
     const videoEl = document.getElementById("video");
     const canvasEl = document.getElementById("canvas");
     const ctx = canvasEl.getContext("2d");
-
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
     const clearTextBtn = document.getElementById("clearTextBtn");
-
     const stableLabelEl = document.getElementById("stableLabel");
     const rawLabelEl = document.getElementById("rawLabel");
     const confEl = document.getElementById("conf");
     const handInfoEl = document.getElementById("handInfo");
     const transcriptEl = document.getElementById("transcript");
-
     const aslLabelEl = document.getElementById("aslLabel");
     const addSampleBtn = document.getElementById("addSampleBtn");
     const clearSamplesBtn = document.getElementById("clearSamplesBtn");
     const sampleCountEl = document.getElementById("sampleCount");
     const exportBtn = document.getElementById("exportBtn");
     const importInput = document.getElementById("importInput");
-
     const stabWindowEl = document.getElementById("stabWindow");
     const stabMajorityEl = document.getElementById("stabMajority");
     const minConfEl = document.getElementById("minConf");
     const emitDebounceEl = document.getElementById("emitDebounce");
 
-    // -----------------------------
     // Recorder refs
-    // -----------------------------
     const videoRec = document.getElementById("videoRec");
     const canvasRec = document.getElementById("canvasRec");
     const ctxRec = canvasRec.getContext("2d");
-
     const recStartBtn = document.getElementById("recStartBtn");
     const recStopBtn = document.getElementById("recStopBtn");
     const recResetLetterBtn = document.getElementById("recResetLetterBtn");
-
     const recTargetLabelEl = document.getElementById("recTargetLabel");
     const recProgressEl = document.getElementById("recProgress");
     const recAutoStateEl = document.getElementById("recAutoState");
-    const recRawLabelEl = document.getElementById("recRawLabel");
-    const recConfEl = document.getElementById("recConf");
-
+    const recMotionEl = document.getElementById("recMotion");
+    const recPresetEl = document.getElementById("recPreset");
     const recGoalEl = document.getElementById("recGoal");
-    const recMinConfEl = document.getElementById("recMinConf");
     const recHoldMsEl = document.getElementById("recHoldMs");
     const recCooldownMsEl = document.getElementById("recCooldownMs");
-
+    const recStabThreshEl = document.getElementById("recStabThresh");
     const recPrevBtn = document.getElementById("recPrevBtn");
     const recNextBtn = document.getElementById("recNextBtn");
-
     const recExportBtn = document.getElementById("recExportBtn");
     const recImportInput = document.getElementById("recImportInput");
 
-    // Advance overlay (Option A)
+    // Advance overlay
     const advanceOverlay = document.getElementById("advanceOverlay");
     const advanceMsg = document.getElementById("advanceMsg");
     const advanceStayBtn = document.getElementById("advanceStayBtn");
     const advanceContinueBtn = document.getElementById("advanceContinueBtn");
 
-    // Profiles tab refs
+    // Profiles tab
     const profileSelect = document.getElementById("profileSelect");
     const profileActivateBtn = document.getElementById("profileActivateBtn");
     const profileDeleteBtn = document.getElementById("profileDeleteBtn");
@@ -459,7 +439,7 @@
     const profileCreateBtn = document.getElementById("profileCreateBtn");
     const activeSamplesKpi = document.getElementById("activeSamplesKpi");
 
-    // Profile modal refs
+    // Profile modal
     const profileModal = document.getElementById("profileModal");
     const profileModalSelect = document.getElementById("profileModalSelect");
     const profileModalActivateBtn = document.getElementById("profileModalActivateBtn");
@@ -468,16 +448,13 @@
     const profileModalCreateBtn = document.getElementById("profileModalCreateBtn");
     const profileModalCloseBtn = document.getElementById("profileModalCloseBtn");
 
-    // -----------------------------
-    // kNN classifier (shared)
-    // -----------------------------
+    // kNN
     const knn = knnClassifier.create();
 
-    // -----------------------------
-    // MediaPipe Tasks Vision
-    // -----------------------------
+    // MediaPipe
     let handLandmarker = null;
-    let drawingUtils = null;
+    let drawingDemo = null;
+    let drawingRec = null;
 
     let streamDemo = null;
     let rafDemo = null;
@@ -487,34 +464,18 @@
     let rafRec = null;
     let lastRecDominantLandmarks = null;
 
-    // -----------------------------
-    // Local profiles (LocalStorage)
-    // -----------------------------
-    const LS_KEY = "asl_profiles_v1";
-    const LS_ACTIVE = "asl_active_profile_v1";
+    // -----------------------
+    // Profiles (LocalStorage)
+    // -----------------------
+    const LS_KEY = "asl_profiles_v2";
+    const LS_ACTIVE = "asl_active_profile_v2";
 
     function loadProfiles() {
-      try {
-        const raw = localStorage.getItem(LS_KEY);
-        const obj = raw ? JSON.parse(raw) : {};
-        return (obj && typeof obj === "object") ? obj : {};
-      } catch { return {}; }
+      try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
+      catch { return {}; }
     }
-    function saveProfiles(p) {
-      localStorage.setItem(LS_KEY, JSON.stringify(p));
-    }
-    function ensureDefaultProfiles() {
-      const p = loadProfiles();
-      const keys = Object.keys(p);
-      if (keys.length === 0) {
-        p["BossDemo"] = { mode: "demo", datasetJSON: null, createdAt: Date.now() };
-        p["FriendRecording"] = { mode: "recording", datasetJSON: null, createdAt: Date.now() };
-        saveProfiles(p);
-        localStorage.setItem(LS_ACTIVE, "BossDemo");
-      } else if (!localStorage.getItem(LS_ACTIVE)) {
-        localStorage.setItem(LS_ACTIVE, keys[0]);
-      }
-    }
+    function saveProfiles(p) { localStorage.setItem(LS_KEY, JSON.stringify(p)); }
+    function getActiveProfileName() { return localStorage.getItem(LS_ACTIVE) || ""; }
 
     function datasetToJSON(dataset) {
       const out = {};
@@ -533,58 +494,12 @@
       return ds;
     }
 
-    function setActiveProfile(name) {
-      const profiles = loadProfiles();
-      if (!profiles[name]) return;
-
-      // save current dataset into currently active profile first
-      persistActiveProfileDataset();
-
-      // switch
-      localStorage.setItem(LS_ACTIVE, name);
-      const prof = profiles[name];
-
-      activeProfileNameEl.textContent = name;
-      activeProfileModeEl.textContent = prof.mode;
-
-      // load dataset into knn
-      knn.clearAllClasses();
-      if (prof.datasetJSON) {
-        try {
-          const ds = jsonToDataset(prof.datasetJSON);
-          knn.setClassifierDataset(ds);
-        } catch (e) {
-          console.warn("Failed to load datasetJSON for profile", name, e);
-        }
-      }
-
-      refreshProfileUI();
-
-      // Suggest tab based on mode (non-destructive)
-      if (prof.mode === "recording") setActiveTab("recorder");
-      else setActiveTab("demo");
-
-      // Update counters
-      sampleCountEl.textContent = knn.getNumExamples();
-      activeSamplesKpi.textContent = knn.getNumExamples();
-      updateRecorderHeader();
-      setStatus("Idle");
-    }
-
-    function getActiveProfileName() {
-      return localStorage.getItem(LS_ACTIVE) || "";
-    }
-
     function persistActiveProfileDataset() {
       const name = getActiveProfileName();
       if (!name) return;
       const profiles = loadProfiles();
       if (!profiles[name]) return;
-
-      const ds = knn.getClassifierDataset();
-      const json = datasetToJSON(ds);
-
-      profiles[name].datasetJSON = json;
+      profiles[name].datasetJSON = datasetToJSON(knn.getClassifierDataset());
       profiles[name].updatedAt = Date.now();
       saveProfiles(profiles);
     }
@@ -598,7 +513,8 @@
         sel.innerHTML = "";
         for (const n of names) {
           const opt = document.createElement("option");
-          opt.value = n; opt.textContent = `${n} (${profiles[n].mode})`;
+          opt.value = n;
+          opt.textContent = `${n} (${profiles[n].mode})`;
           if (n === active) opt.selected = true;
           sel.appendChild(opt);
         }
@@ -606,7 +522,6 @@
       fillSelect(profileSelect);
       fillSelect(profileModalSelect);
 
-      // top bar
       if (profiles[active]) {
         activeProfileNameEl.textContent = active;
         activeProfileModeEl.textContent = profiles[active].mode;
@@ -618,13 +533,55 @@
       activeSamplesKpi.textContent = knn.getNumExamples();
     }
 
+    function ensureDefaultProfiles() {
+      const p = loadProfiles();
+      const keys = Object.keys(p);
+      if (keys.length === 0) {
+        p["BossDemo"] = { mode: "demo", datasetJSON: null, createdAt: Date.now() };
+        p["FriendRecording"] = { mode: "recording", datasetJSON: null, createdAt: Date.now() };
+        saveProfiles(p);
+        localStorage.setItem(LS_ACTIVE, "BossDemo");
+      } else if (!localStorage.getItem(LS_ACTIVE)) {
+        localStorage.setItem(LS_ACTIVE, keys[0]);
+      }
+    }
+
+    function setActiveProfile(name) {
+      const profiles = loadProfiles();
+      if (!profiles[name]) return;
+
+      // persist previous
+      persistActiveProfileDataset();
+
+      localStorage.setItem(LS_ACTIVE, name);
+
+      // load dataset
+      knn.clearAllClasses();
+      if (profiles[name].datasetJSON) {
+        try {
+          knn.setClassifierDataset(jsonToDataset(profiles[name].datasetJSON));
+        } catch (e) {
+          console.warn("Failed to load dataset for profile", name, e);
+        }
+      }
+
+      refreshProfileUI();
+      sampleCountEl.textContent = knn.getNumExamples();
+      activeSamplesKpi.textContent = knn.getNumExamples();
+
+      // suggest tab by mode
+      if (profiles[name].mode === "recording") setActiveTab("recorder");
+      else setActiveTab("demo");
+
+      updateRecorderHeader();
+      setStatus("Idle");
+    }
+
     function createProfile(name, mode) {
       name = (name || "").trim();
       if (!name) return { ok:false, msg:"Profile name is required." };
-
       const profiles = loadProfiles();
       if (profiles[name]) return { ok:false, msg:"Profile already exists." };
-
       profiles[name] = { mode, datasetJSON: null, createdAt: Date.now() };
       saveProfiles(profiles);
       return { ok:true };
@@ -635,20 +592,34 @@
       if (!profiles[name]) return;
       delete profiles[name];
       saveProfiles(profiles);
-
-      // if deleted active, switch to any remaining
-      const names = Object.keys(profiles);
-      if (getActiveProfileName() === name) {
-        localStorage.setItem(LS_ACTIVE, names[0] || "");
-      }
+      const remaining = Object.keys(profiles);
+      if (getActiveProfileName() === name) localStorage.setItem(LS_ACTIVE, remaining[0] || "");
       refreshProfileUI();
-      const newActive = getActiveProfileName();
-      if (newActive) setActiveProfile(newActive);
+      const a = getActiveProfileName();
+      if (a) setActiveProfile(a);
     }
 
-    // -----------------------------
-    // Vector normalization
-    // -----------------------------
+    // -----------------------
+    // Utilities
+    // -----------------------
+    function downloadJSON(filename, obj) {
+      const blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function ensureCanvasSizeFor(video, canvas) {
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 480;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w; canvas.height = h;
+      }
+    }
+
+    // Vector normalization (center + scale + unit length)
     function landmarksToNormalizedVector(lm) {
       const base = lm[0];
       const dx1 = lm[5].x - base.x, dy1 = lm[5].y - base.y, dz1 = (lm[5].z ?? 0) - (base.z ?? 0);
@@ -672,9 +643,7 @@
       return v;
     }
 
-    // -----------------------------
     // Dominant hand selection (largest bbox)
-    // -----------------------------
     function bboxAreaFromLandmarks(lm) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const p of lm) {
@@ -706,9 +675,59 @@
       } catch { return null; }
     }
 
-    // -----------------------------
+    // -----------------------
+    // MediaPipe init
+    // -----------------------
+    async function initHandLandmarker() {
+      setStatus("Loading model…");
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+      );
+      handLandmarker = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+        },
+        runningMode: "VIDEO",
+        numHands: 2
+      });
+      drawingDemo = new DrawingUtils(ctx);
+      drawingRec = new DrawingUtils(ctxRec);
+    }
+
+    function drawHands(video, canvas, context, drawing, result) {
+      ensureCanvasSizeFor(video, canvas);
+      context.save();
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const lms = result.landmarks || [];
+      if (lms.length > 0) {
+        for (const lm of lms) {
+          drawing.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { lineWidth: 3 });
+          drawing.drawLandmarks(lm, { lineWidth: 2 });
+        }
+      }
+      context.restore();
+    }
+
+    // -----------------------
+    // kNN predict (Demo only)
+    // -----------------------
+    async function knnPredict(lm) {
+      if (knn.getNumExamples() <= 0) return { label: null, conf: 0 };
+      const vec = landmarksToNormalizedVector(lm);
+      const tensor = tf.tensor(vec, [1, vec.length]);
+      const pred = await knn.predictClass(tensor, 5);
+      tensor.dispose?.();
+      const label = pred.label;
+      const conf = (pred.confidences && pred.confidences[label]) ? pred.confidences[label] : 0;
+      return { label, conf };
+    }
+
+    // -----------------------
     // Demo stabilization
-    // -----------------------------
+    // -----------------------
     let predHistory = [];
     let lastEmitted = { label: null, t: 0 };
 
@@ -761,76 +780,14 @@
       lastEmitted = { label, t: now };
     }
 
-    // -----------------------------
-    // MediaPipe init
-    // -----------------------------
-    async function initHandLandmarker() {
-      setStatus("Loading model…");
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
-      );
-      handLandmarker = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
-        },
-        runningMode: "VIDEO",
-        numHands: 2
-      });
-      drawingUtils = new DrawingUtils(ctx);
-    }
-
-    // -----------------------------
-    // Drawing
-    // -----------------------------
-    function ensureCanvasSizeFor(video, canvas) {
-      const w = video.videoWidth || 640;
-      const h = video.videoHeight || 480;
-      if (canvas.width !== w || canvas.height !== h) {
-        canvas.width = w; canvas.height = h;
-      }
-    }
-
-    function drawHandsOn(video, canvas, context, result) {
-      ensureCanvasSizeFor(video, canvas);
-      context.save();
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      const lms = result.landmarks || [];
-      if (lms.length > 0) {
-        const du = new DrawingUtils(context);
-        for (const lm of lms) {
-          du.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { lineWidth: 3 });
-          du.drawLandmarks(lm, { lineWidth: 2 });
-        }
-      }
-      context.restore();
-    }
-
-    // -----------------------------
-    // Predict (shared)
-    // -----------------------------
-    async function knnPredict(lm) {
-      if (knn.getNumExamples() <= 0) return { label: null, conf: 0 };
-
-      const vec = landmarksToNormalizedVector(lm);
-      const tensor = tf.tensor(vec, [1, vec.length]);
-      const pred = await knn.predictClass(tensor, 5);
-      const label = pred.label;
-      const conf = (pred.confidences && pred.confidences[label]) ? pred.confidences[label] : 0;
-      return { label, conf };
-    }
-
-    // -----------------------------
-    // DEMO loop
-    // -----------------------------
+    // -----------------------
+    // Demo loop
+    // -----------------------
     async function demoStep() {
       if (!handLandmarker) return;
       const now = performance.now();
       const result = handLandmarker.detectForVideo(videoEl, now);
-
-      drawHandsOn(videoEl, canvasEl, ctx, result);
+      drawHands(videoEl, canvasEl, ctx, drawingDemo, result);
 
       const lms = result.landmarks || [];
       if (lms.length === 0) {
@@ -866,15 +823,12 @@
       if (rafDemo) return;
       setStatus("Starting…");
       if (!handLandmarker) await initHandLandmarker();
-
       streamDemo = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
       videoEl.srcObject = streamDemo;
       await videoEl.play();
-
       setStatus("Running");
       startBtn.disabled = true;
       stopBtn.disabled = false;
-
       rafDemo = requestAnimationFrame(demoStep);
     }
 
@@ -883,11 +837,9 @@
       rafDemo = null;
       if (streamDemo) { streamDemo.getTracks().forEach(t => t.stop()); streamDemo = null; }
       videoEl.srcObject = null;
-
       setStatus("Idle");
       startBtn.disabled = false;
       stopBtn.disabled = true;
-
       predHistory = [];
       lastEmitted = { label: null, t: 0 };
       lastDominantLandmarks = null;
@@ -897,51 +849,19 @@
       handInfoEl.textContent = "—";
     }
 
-    // -----------------------------
-    // DEMO training + import/export
-    // -----------------------------
-    function downloadJSON(filename, obj) {
-      const blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }
+    // Demo controls
+    startBtn.addEventListener("click", () => demoStart().catch(err => {
+      console.error(err);
+      setStatus("Error");
+      alert("Could not start. Use Chrome/Edge and run via http://localhost:8000 (not file://). Check camera permissions.");
+      demoStop();
+    }));
+    stopBtn.addEventListener("click", demoStop);
 
-    exportBtn.addEventListener("click", () => {
-      persistActiveProfileDataset();
-      const active = getActiveProfileName();
-      const profiles = loadProfiles();
-      const prof = profiles[active];
-      downloadJSON(`${active || "profile"}_knn.json`, {
-        profile: active,
-        mode: prof?.mode || "demo",
-        dataset: prof?.datasetJSON || datasetToJSON(knn.getClassifierDataset()),
-        exportedAt: new Date().toISOString()
-      });
-    });
-
-    importInput.addEventListener("change", async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const text = await file.text();
-      const obj = JSON.parse(text);
-
-      // Support both raw dataset JSON and wrapped export
-      const dsObj = obj.dataset ? obj.dataset : obj;
-      try {
-        const ds = jsonToDataset(dsObj);
-        knn.setClassifierDataset(ds);
-        sampleCountEl.textContent = knn.getNumExamples();
-        activeSamplesKpi.textContent = knn.getNumExamples();
-        persistActiveProfileDataset();
-        alert("Imported into active profile.");
-      } catch (err) {
-        console.error(err);
-        alert("Import failed. File format not recognized.");
-      }
-      importInput.value = "";
+    clearTextBtn.addEventListener("click", () => {
+      transcriptEl.value = "";
+      predHistory = [];
+      lastEmitted = { label: null, t: 0 };
     });
 
     addSampleBtn.addEventListener("click", () => {
@@ -950,6 +870,7 @@
       const vec = landmarksToNormalizedVector(lastDominantLandmarks);
       const tensor = tf.tensor(vec, [1, vec.length]);
       knn.addExample(tensor, label);
+      tensor.dispose?.();
       sampleCountEl.textContent = knn.getNumExamples();
       activeSamplesKpi.textContent = knn.getNumExamples();
       persistActiveProfileDataset();
@@ -969,31 +890,50 @@
       updateRecorderHeader();
     });
 
-    clearTextBtn.addEventListener("click", () => {
-      transcriptEl.value = "";
-      predHistory = [];
-      lastEmitted = { label: null, t: 0 };
+    exportBtn.addEventListener("click", () => {
+      persistActiveProfileDataset();
+      const active = getActiveProfileName();
+      const profiles = loadProfiles();
+      const prof = profiles[active];
+      downloadJSON(`${active || "profile"}_knn.json`, {
+        profile: active,
+        mode: prof?.mode || "demo",
+        dataset: prof?.datasetJSON || datasetToJSON(knn.getClassifierDataset()),
+        exportedAt: new Date().toISOString()
+      });
     });
 
-    startBtn.addEventListener("click", () => demoStart().catch(err => {
-      console.error(err);
-      setStatus("Error");
-      alert("Could not start. Use Chrome/Edge and run via http://localhost:8000 (not file://). Check camera permissions.");
-      demoStop();
-    }));
-    stopBtn.addEventListener("click", demoStop);
+    importInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      const obj = JSON.parse(text);
+      const dsObj = obj.dataset ? obj.dataset : obj;
+      try {
+        knn.clearAllClasses();
+        knn.setClassifierDataset(jsonToDataset(dsObj));
+        sampleCountEl.textContent = knn.getNumExamples();
+        activeSamplesKpi.textContent = knn.getNumExamples();
+        persistActiveProfileDataset();
+        updateRecorderHeader();
+        alert("Imported into active profile.");
+      } catch (err) {
+        console.error(err);
+        alert("Import failed. File format not recognized.");
+      }
+      importInput.value = "";
+    });
 
-    // -----------------------------
-    // Recorder logic (auto-capture)
-    // -----------------------------
+    // -----------------------
+    // Recorder (stability-based)
+    // -----------------------
     const LABELS = ["A","B","C","D","E","F","G","H","I","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y"];
-
     let recLabelIndex = 0;
     let recIsRunning = false;
     let recLastSampleAt = 0;
     let recStableSince = 0;
     let recPrevVec = null;
-    let pendingAdvance = null; // {fromLabel,toLabel}
+    let pendingAdvance = null;
 
     function getRecTargetLabel() { return LABELS[recLabelIndex] || "A"; }
 
@@ -1002,7 +942,6 @@
       const counts = {};
       for (const label of Object.keys(ds)) {
         const t = ds[label];
-        // number of examples = first dimension
         counts[label] = t.shape?.[0] || 0;
       }
       return counts;
@@ -1011,14 +950,30 @@
     function updateRecorderHeader() {
       const label = getRecTargetLabel();
       recTargetLabelEl.textContent = label;
-
       const goal = Math.max(5, Math.min(200, parseInt(recGoalEl.value || "30", 10)));
       const counts = getDatasetCountsFromKnn();
       const n = counts[label] || 0;
-
       recProgressEl.textContent = `${n}/${goal}`;
       recAutoStateEl.textContent = recIsRunning ? "ON" : "OFF";
     }
+
+    function applyRecPreset(p) {
+      if (p === "fast") {
+        recHoldMsEl.value = 250;
+        recCooldownMsEl.value = 140;
+        recStabThreshEl.value = 0.11;
+      } else if (p === "strict") {
+        recHoldMsEl.value = 650;
+        recCooldownMsEl.value = 260;
+        recStabThreshEl.value = 0.06;
+      } else {
+        recHoldMsEl.value = 450;
+        recCooldownMsEl.value = 220;
+        recStabThreshEl.value = 0.08;
+      }
+      updateRecorderHeader();
+    }
+    recPresetEl.addEventListener("change", () => applyRecPreset(recPresetEl.value));
 
     function showAdvanceOverlay(fromLabel, toLabel) {
       const goal = Math.max(5, Math.min(200, parseInt(recGoalEl.value || "30", 10)));
@@ -1026,25 +981,18 @@
       advanceMsg.textContent = `${fromLabel} complete (${goal}/${goal}). Next: ${toLabel}. Change the sign, then press Continue.`;
       advanceOverlay.style.display = "flex";
     }
-
     function hideAdvanceOverlay() {
       advanceOverlay.style.display = "none";
       pendingAdvance = null;
     }
-
-    advanceStayBtn.addEventListener("click", () => {
-      hideAdvanceOverlay();
-    });
-
+    advanceStayBtn.addEventListener("click", () => hideAdvanceOverlay());
     advanceContinueBtn.addEventListener("click", () => {
       if (!pendingAdvance) return;
       recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
-      recStableSince = 0;
-      recPrevVec = null;
+      recStableSince = 0; recPrevVec = null;
       hideAdvanceOverlay();
       updateRecorderHeader();
-
-      // Auto-resume recording
+      // auto-resume
       recIsRunning = true;
       recStartBtn.disabled = true; recStopBtn.disabled = false;
       updateRecorderHeader();
@@ -1055,9 +1003,7 @@
       const goal = Math.max(5, Math.min(200, parseInt(recGoalEl.value || "30", 10)));
       const counts = getDatasetCountsFromKnn();
       const n = counts[label] || 0;
-
       if (n >= goal && recLabelIndex < LABELS.length - 1) {
-        // STOP & CONFIRM
         if (recIsRunning) {
           recIsRunning = false;
           recStartBtn.disabled = false; recStopBtn.disabled = true;
@@ -1072,6 +1018,7 @@
       const vec = landmarksToNormalizedVector(lm);
       const tensor = tf.tensor(vec, [1, vec.length]);
       knn.addExample(tensor, label);
+      tensor.dispose?.();
       sampleCountEl.textContent = knn.getNumExamples();
       activeSamplesKpi.textContent = knn.getNumExamples();
       persistActiveProfileDataset();
@@ -1083,33 +1030,37 @@
       const ds = knn.getClassifierDataset();
       if (!ds[label]) return;
       const newDS = {};
-      for (const k of Object.keys(ds)) {
-        if (k !== label) newDS[k] = ds[k];
-      }
+      for (const k of Object.keys(ds)) if (k !== label) newDS[k] = ds[k];
       knn.clearAllClasses();
       knn.setClassifierDataset(newDS);
       persistActiveProfileDataset();
-      updateRecorderHeader();
       sampleCountEl.textContent = knn.getNumExamples();
       activeSamplesKpi.textContent = knn.getNumExamples();
+      updateRecorderHeader();
     }
 
-    // Recorder step:
-    // - predict label+conf
-    // - if label==target && conf>=minConf held for holdMs, then add sample
-    async function recorderStep() {
+    // Recorder loop: throttle to ~15fps for smoother performance
+    let recLastFrameTs = 0;
+
+    async function recorderStep(ts) {
       if (!handLandmarker) return;
-      const now = performance.now();
-      const result = handLandmarker.detectForVideo(videoRec, now);
-      drawHandsOn(videoRec, canvasRec, ctxRec, result);
+
+      // throttle
+      if (ts - recLastFrameTs < 66) { // ~15fps
+        rafRec = requestAnimationFrame(recorderStep);
+        return;
+      }
+      recLastFrameTs = ts;
+
+      const result = handLandmarker.detectForVideo(videoRec, ts);
+      drawHands(videoRec, canvasRec, ctxRec, drawingRec, result);
 
       const lms = result.landmarks || [];
       if (lms.length === 0) {
         lastRecDominantLandmarks = null;
-        recRawLabelEl.textContent = "—";
-        recConfEl.textContent = "—";
         recStableSince = 0;
         recPrevVec = null;
+        recMotionEl.textContent = "—";
         rafRec = requestAnimationFrame(recorderStep);
         return;
       }
@@ -1117,45 +1068,38 @@
       const idx = pickDominantHandIndex(result);
       lastRecDominantLandmarks = lms[idx];
 
-      const pred = await knnPredict(lastRecDominantLandmarks);
-      const label = pred.label || "NO SAMPLES";
-      const conf = pred.conf || 0;
+      // compute motion from vector delta (stability)
+      const vec = landmarksToNormalizedVector(lastRecDominantLandmarks);
+      let vecDelta = 999;
+      if (recPrevVec) {
+        let sum = 0;
+        for (let i = 0; i < vec.length; i++) {
+          const d = vec[i] - recPrevVec[i];
+          sum += d * d;
+        }
+        vecDelta = Math.sqrt(sum);
+      }
+      recPrevVec = vec;
 
-      recRawLabelEl.textContent = label;
-      recConfEl.textContent = pred.label ? conf.toFixed(2) : "—";
+      recMotionEl.textContent = isFinite(vecDelta) ? vecDelta.toFixed(3) : "—";
 
-      if (recIsRunning && pred.label) {
-        const target = getRecTargetLabel();
-        const minC = Math.max(0, Math.min(1, parseFloat(recMinConfEl.value || "0.70")));
+      if (recIsRunning && lastRecDominantLandmarks) {
         const holdMs = Math.max(100, Math.min(3000, parseInt(recHoldMsEl.value || "450", 10)));
         const cooldownMs = Math.max(50, Math.min(3000, parseInt(recCooldownMsEl.value || "220", 10)));
+        const stabThresh = Math.max(0.01, Math.min(0.50, parseFloat(recStabThreshEl.value || "0.08")));
         const nowMs = Date.now();
 
-        // Use vector stability (optional) to reduce jitter duplicates
-        const vec = landmarksToNormalizedVector(lastRecDominantLandmarks);
-        let vecDelta = 0;
-        if (recPrevVec) {
-          for (let i = 0; i < vec.length; i++) {
-            const d = vec[i] - recPrevVec[i];
-            vecDelta += d*d;
-          }
-          vecDelta = Math.sqrt(vecDelta);
-        }
-        recPrevVec = vec;
+        const stableEnough = vecDelta <= stabThresh;
 
-        const isGood = (label === target) && (conf >= minC);
-
-        if (!isGood) {
+        if (!stableEnough) {
           recStableSince = 0;
         } else {
           if (!recStableSince) recStableSince = nowMs;
           const held = nowMs - recStableSince;
-
-          // sample only if held stable enough and cooldown passed
           if (held >= holdMs && (nowMs - recLastSampleAt) >= cooldownMs) {
-            addRecorderSample(target, lastRecDominantLandmarks);
+            addRecorderSample(getRecTargetLabel(), lastRecDominantLandmarks);
             recLastSampleAt = nowMs;
-            recStableSince = 0; // require re-hold for next sample
+            recStableSince = 0;
             maybeAutoAdvanceIfDone();
           }
         }
@@ -1166,10 +1110,11 @@
 
     async function recorderStart() {
       if (rafRec) return;
-      const active = getActiveProfileName();
+
       const profiles = loadProfiles();
+      const active = getActiveProfileName();
       if (profiles[active]?.mode !== "recording") {
-        alert("Active profile is not in Recording mode. Switch profile or change mode in Profiles.");
+        alert("Active profile is not in Recording mode. Switch profile or set mode in Profiles.");
         return;
       }
 
@@ -1184,8 +1129,9 @@
       recStartBtn.disabled = true;
       recStopBtn.disabled = false;
       updateRecorderHeader();
-
       setStatus("Running");
+
+      recLastFrameTs = 0;
       rafRec = requestAnimationFrame(recorderStep);
     }
 
@@ -1200,10 +1146,8 @@
       recStopBtn.disabled = true;
       recStableSince = 0;
       recPrevVec = null;
-      recRawLabelEl.textContent = "—";
-      recConfEl.textContent = "—";
+      recMotionEl.textContent = "—";
       updateRecorderHeader();
-
       setStatus("Idle");
     }
 
@@ -1232,7 +1176,6 @@
       resetCurrentLetterSamples();
     });
 
-    // Recorder export/import profile JSON
     recExportBtn.addEventListener("click", () => {
       persistActiveProfileDataset();
       const active = getActiveProfileName();
@@ -1252,11 +1195,9 @@
       const text = await file.text();
       const obj = JSON.parse(text);
       const dsObj = obj.dataset ? obj.dataset : obj;
-
       try {
-        const ds = jsonToDataset(dsObj);
         knn.clearAllClasses();
-        knn.setClassifierDataset(ds);
+        knn.setClassifierDataset(jsonToDataset(dsObj));
         persistActiveProfileDataset();
         sampleCountEl.textContent = knn.getNumExamples();
         activeSamplesKpi.textContent = knn.getNumExamples();
@@ -1269,13 +1210,11 @@
       recImportInput.value = "";
     });
 
-    // -----------------------------
-    // Profiles UI actions
-    // -----------------------------
+    // -----------------------
+    // Profiles UI events
+    // -----------------------
     profileCreateBtn.addEventListener("click", () => {
-      const name = newProfileName.value;
-      const mode = newProfileMode.value;
-      const res = createProfile(name, mode);
+      const res = createProfile(newProfileName.value, newProfileMode.value);
       if (!res.ok) { alert(res.msg); return; }
       refreshProfileUI();
       newProfileName.value = "";
@@ -1295,56 +1234,55 @@
       deleteProfile(sel);
     });
 
-    // Modal open/close
     switchProfileBtn.addEventListener("click", () => {
       refreshProfileUI();
       profileModal.style.display = "flex";
     });
-
-    profileModalCloseBtn.addEventListener("click", () => {
-      profileModal.style.display = "none";
-    });
-
+    profileModalCloseBtn.addEventListener("click", () => profileModal.style.display = "none");
     profileModalActivateBtn.addEventListener("click", () => {
       const sel = profileModalSelect.value;
       if (!sel) return;
       profileModal.style.display = "none";
       setActiveProfile(sel);
     });
-
     profileModalCreateBtn.addEventListener("click", () => {
-      const name = profileModalNewName.value;
-      const mode = profileModalNewMode.value;
-      const res = createProfile(name, mode);
+      const res = createProfile(profileModalNewName.value, profileModalNewMode.value);
       if (!res.ok) { alert(res.msg); return; }
       profileModal.style.display = "none";
-      setActiveProfile(name.trim());
+      setActiveProfile(profileModalNewName.value.trim());
       profileModalNewName.value = "";
     });
 
-    // -----------------------------
-    // Persist dataset on unload
-    // -----------------------------
-    window.addEventListener("beforeunload", () => {
-      try { persistActiveProfileDataset(); } catch {}
+    // Stop & Confirm overlay
+    advanceStayBtn.addEventListener("click", () => advanceOverlay.style.display = "none");
+    advanceContinueBtn.addEventListener("click", () => {
+      if (!pendingAdvance) { advanceOverlay.style.display = "none"; return; }
+      recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
+      recStableSince = 0; recPrevVec = null;
+      pendingAdvance = null;
+      advanceOverlay.style.display = "none";
+      updateRecorderHeader();
+      // resume
+      recIsRunning = true;
+      recStartBtn.disabled = true; recStopBtn.disabled = false;
+      updateRecorderHeader();
     });
 
-    // -----------------------------
+    // Persist on unload
+    window.addEventListener("beforeunload", () => { try { persistActiveProfileDataset(); } catch {} });
+
     // Boot
-    // -----------------------------
     ensureDefaultProfiles();
     refreshProfileUI();
     setActiveProfile(getActiveProfileName());
-
-    // Initial UI
     sampleCountEl.textContent = knn.getNumExamples();
     updateRecorderHeader();
+    applyRecPreset("normal");
 
-    // Default tab based on mode
-    const profs = loadProfiles();
+    // choose default tab by mode
+    const profiles = loadProfiles();
     const active = getActiveProfileName();
-    const mode = profs[active]?.mode || "demo";
-    setActiveTab(mode === "recording" ? "recorder" : "demo");
+    setActiveTab((profiles[active]?.mode || "demo") === "recording" ? "recorder" : "demo");
   </script>
 </body>
 </html>
