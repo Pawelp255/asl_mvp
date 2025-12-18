@@ -13,6 +13,7 @@
     video, canvas { width: 520px; max-width: 100%; border-radius: 12px; background: #000; }
     .big { font-size: 22px; font-weight: 700; }
     button, select, input { padding: 10px 12px; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
     button:active { transform: translateY(1px); }
     textarea { width: 520px; max-width: 100%; height: 120px; border-radius: 12px; padding: 10px; border: 1px solid #ddd; }
     .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid #ddd; background: #fafafa; }
@@ -22,18 +23,46 @@
     label.small { font-size: 12px; color: #555; display:block; margin: 0 0 6px 0; }
     .inline { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .warn { color: #8a3b00; background:#fff3cd; border:1px solid #ffeeba; padding:10px; border-radius:12px; }
+    .ok { color:#0b5d1e; background:#e8f5ee; border:1px solid #cfe9da; padding:8px 10px; border-radius:12px; }
+    .bad { color:#7a0b0b; background:#fdeaea; border:1px solid #f5c7c7; padding:8px 10px; border-radius:12px; }
+    .tiny { font-size: 11px; color:#666; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid #eee; padding: 6px 8px; text-align: left; font-size: 12px; }
+    th { color:#444; font-weight: 700; background: #fafafa; }
+    .pill { display:inline-block; padding:2px 8px; border:1px solid #ddd; border-radius: 999px; background:#fff; font-size: 11px; }
   </style>
 </head>
 <body>
   <h1>ASL Fingerspelling → English (Local MVP)</h1>
   <div class="muted">
     Local inference (no cloud). MediaPipe Tasks Vision HandLandmarker + TF.js kNN.
-    MVP targets static ASL letters (A–Y). J/Z are motion letters (next step).
+    MVP targets static ASL letters (A–Y, excluding J/Z motion).
   </div>
 
   <div id="httpsHint" class="warn" style="display:none; margin-top:12px;">
     This page is not served over HTTPS. Camera access may be blocked on mobile.
     Please use an HTTPS URL (e.g., your domain) or localhost on the same device.
+  </div>
+
+  <div class="panel" style="margin-top:12px;">
+    <div class="inline" style="justify-content:space-between;">
+      <div class="inline">
+        <span class="badge">Mode: <span id="modeBadge">—</span></span>
+        <span class="badge">Profile: <span id="profileBadge">—</span></span>
+        <span class="badge">App: <span id="appVer">1.2</span></span>
+      </div>
+
+      <div class="inline">
+        <label class="small" style="margin:0;">Switch profile</label>
+        <select id="profileSelect"></select>
+        <button id="newProfileBtn">New profile</button>
+        <button id="deleteProfileBtn" title="Deletes only locally on this device">Delete profile</button>
+      </div>
+    </div>
+
+    <div class="inline" style="margin-top:10px;">
+      <span class="tiny">Tip: profiles separate datasets locally (no server). Your friend can use her own profile, export JSON, send it to you. You import into your profile for testing/demo.</span>
+    </div>
   </div>
 
   <div class="row" style="margin-top:12px;">
@@ -72,9 +101,6 @@
       <div class="hr"></div>
 
       <div class="mono">
-        Training tip: for each letter collect 20–40 samples across different angles, distances, and lighting.
-      </div>
-      <div class="mono" style="margin-top:6px;">
         Mobile tip: if camera doesn’t start, ensure camera permission is allowed for this site and refresh.
       </div>
     </div>
@@ -91,35 +117,102 @@
 
       <div class="hr"></div>
 
-      <div class="inline">
-        <label class="small" style="margin:0;">ASL label (train):</label>
-        <select id="aslLabel">
-          <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
-          <option value="F">F</option><option value="G">G</option><option value="H">H</option><option value="I">I</option>
-          <option value="K">K</option><option value="L">L</option><option value="M">M</option><option value="N">N</option><option value="O">O</option>
-          <option value="P">P</option><option value="Q">Q</option><option value="R">R</option><option value="S">S</option><option value="T">T</option>
-          <option value="U">U</option><option value="V">V</option><option value="W">W</option><option value="X">X</option><option value="Y">Y</option>
-          <option value="SPACE">SPACE</option>
-          <option value="BACKSPACE">BACKSPACE</option>
-        </select>
+      <!-- DEMO / GENERAL -->
+      <div id="demoControls">
+        <div class="inline">
+          <button id="exportBtn">Export JSON</button>
 
-        <button id="addSampleBtn">Add sample</button>
-        <button id="clearSamplesBtn">Clear samples</button>
-        <span class="badge">Samples: <span id="sampleCount">0</span></span>
+          <label class="badge" style="cursor:pointer;">
+            Import JSON
+            <input id="importInput" type="file" accept="application/json" style="display:none;">
+          </label>
+
+          <label class="badge" style="cursor:pointer;">
+            Merge JSON (2+)
+            <input id="mergeInput" type="file" accept="application/json" multiple style="display:none;">
+          </label>
+
+          <span class="badge">Samples: <span id="sampleCount">0</span></span>
+        </div>
+
+        <div class="mono" style="margin-top:8px;">
+          Export/import is per profile. Use Merge to combine your friend’s JSON with yours, then save as master.
+        </div>
       </div>
 
-      <div class="inline" style="margin-top:10px;">
-        <button id="exportBtn">Export JSON</button>
-        <label class="badge" style="cursor:pointer;">
-          Import JSON
-          <input id="importInput" type="file" accept="application/json" style="display:none;">
-        </label>
+      <!-- RECORD MODE -->
+      <div id="recordControls" style="display:none;">
+        <div class="hr"></div>
+
+        <div class="inline" style="justify-content:space-between;">
+          <div class="inline">
+            <span class="badge">Recorder</span>
+            <span class="badge">Target: <b id="recTarget">—</b></span>
+            <span class="badge">Progress: <b id="recProgress">0/30</b></span>
+          </div>
+          <div class="inline">
+            <button id="recPrevBtn">Prev</button>
+            <button id="recNextBtn">Next</button>
+          </div>
+        </div>
+
+        <div class="inline" style="margin-top:10px;">
+          <button id="recStartBtn">Start auto-capture</button>
+          <button id="recStopBtn" disabled>Stop auto-capture</button>
+          <button id="recResetLabelBtn" title="Clears only current label samples">Reset this label</button>
+          <span class="badge">Per-label goal: <b>30</b></span>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div>
+            <label class="small">Stability hold (ms)</label>
+            <input id="recHoldMs" type="number" min="200" max="1200" value="450" />
+          </div>
+          <div>
+            <label class="small">Capture cooldown (ms)</label>
+            <input id="recCooldownMs" type="number" min="150" max="2000" value="300" />
+          </div>
+          <div>
+            <label class="small">Hand size min (bbox area)</label>
+            <input id="recMinArea" type="number" step="0.01" min="0.02" max="0.5" value="0.08" />
+          </div>
+          <div>
+            <label class="small">Hand size max (bbox area)</label>
+            <input id="recMaxArea" type="number" step="0.01" min="0.05" max="0.8" value="0.35" />
+          </div>
+        </div>
+
+        <div class="inline" style="margin-top:10px;">
+          <span id="qHand" class="pill">Hand: —</span>
+          <span id="qSize" class="pill">Size: —</span>
+          <span id="qMotion" class="pill">Motion: —</span>
+        </div>
+
+        <div class="mono" style="margin-top:8px;">
+          Recorder tip: hold the exact pose steady. The app will auto-capture when motion is low and hand size is in range.
+        </div>
       </div>
 
       <div class="hr"></div>
 
       <div class="muted">Transcript</div>
       <textarea id="transcript" placeholder="Letters will appear here..."></textarea>
+
+      <div class="hr"></div>
+
+      <div class="muted">Samples per label (current profile)</div>
+      <div style="max-height:180px; overflow:auto; border:1px solid #eee; border-radius:12px;">
+        <table id="countsTable">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Samples</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
 
       <div class="mono" style="margin-top:8px;">
         Notes: Detects up to 2 hands; classification uses the largest hand (dominant by bbox area).
@@ -139,7 +232,35 @@
       DrawingUtils
     } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
-    // -------- UI refs --------
+    // =========================
+    // Configuration
+    // =========================
+    const APP_VERSION = "1.2";
+
+    // Static letters only (exclude J/Z motion)
+    const LABELS = [
+      "A","B","C","D","E",
+      "F","G","H","I",
+      "K","L","M","N","O",
+      "P","Q","R","S","T",
+      "U","V","W","X","Y"
+    ];
+
+    const REC_GOAL_PER_LABEL = 30;
+
+    // =========================
+    // Mode detection
+    // =========================
+    const qs = new URLSearchParams(location.search);
+    const MODE = (qs.get("mode") || "demo").toLowerCase(); // "record" or "demo"
+    const modeBadgeEl = document.getElementById("modeBadge");
+    modeBadgeEl.textContent = MODE === "record" ? "record" : "demo";
+
+    // =========================
+    // UI refs
+    // =========================
+    document.getElementById("appVer").textContent = APP_VERSION;
+
     const videoEl = document.getElementById("video");
     const canvasEl = document.getElementById("canvas");
     const ctx = canvasEl.getContext("2d");
@@ -156,54 +277,202 @@
 
     const transcriptEl = document.getElementById("transcript");
 
-    const aslLabelEl = document.getElementById("aslLabel");
-    const addSampleBtn = document.getElementById("addSampleBtn");
-    const clearSamplesBtn = document.getElementById("clearSamplesBtn");
-    const sampleCountEl = document.getElementById("sampleCount");
-
     const exportBtn = document.getElementById("exportBtn");
     const importInput = document.getElementById("importInput");
+    const mergeInput = document.getElementById("mergeInput");
+    const sampleCountEl = document.getElementById("sampleCount");
 
     const stabWindowEl = document.getElementById("stabWindow");
     const stabMajorityEl = document.getElementById("stabMajority");
     const minConfEl = document.getElementById("minConf");
     const emitDebounceEl = document.getElementById("emitDebounce");
 
+    const demoControls = document.getElementById("demoControls");
+    const recordControls = document.getElementById("recordControls");
+
+    // Recorder UI
+    const recTargetEl = document.getElementById("recTarget");
+    const recProgressEl = document.getElementById("recProgress");
+    const recStartBtn = document.getElementById("recStartBtn");
+    const recStopBtn = document.getElementById("recStopBtn");
+    const recPrevBtn = document.getElementById("recPrevBtn");
+    const recNextBtn = document.getElementById("recNextBtn");
+    const recResetLabelBtn = document.getElementById("recResetLabelBtn");
+
+    const recHoldMsEl = document.getElementById("recHoldMs");
+    const recCooldownMsEl = document.getElementById("recCooldownMs");
+    const recMinAreaEl = document.getElementById("recMinArea");
+    const recMaxAreaEl = document.getElementById("recMaxArea");
+
+    const qHandEl = document.getElementById("qHand");
+    const qSizeEl = document.getElementById("qSize");
+    const qMotionEl = document.getElementById("qMotion");
+
+    // Profile UI
+    const profileSelect = document.getElementById("profileSelect");
+    const newProfileBtn = document.getElementById("newProfileBtn");
+    const deleteProfileBtn = document.getElementById("deleteProfileBtn");
+    const profileBadgeEl = document.getElementById("profileBadge");
+
+    // Counts table
+    const countsTbody = document.querySelector("#countsTable tbody");
+
     function setStatus(s) { statusEl.textContent = s; }
 
-    // Show hint if not HTTPS (mobile usually needs HTTPS for camera; localhost is also OK)
+    // Show hint if not HTTPS (mobile usually needs HTTPS; localhost is OK)
     (function showHttpsHint() {
       const httpsHint = document.getElementById("httpsHint");
-      const isLocalhost =
-        location.hostname === "localhost" ||
-        location.hostname === "127.0.0.1" ||
-        location.hostname === "[::1]";
-      if (!isLocalhost && location.protocol !== "https:") {
-        httpsHint.style.display = "block";
-      }
+      const isLocalhost = ["localhost","127.0.0.1","[::1]"].includes(location.hostname);
+      if (!isLocalhost && location.protocol !== "https:") httpsHint.style.display = "block";
     })();
 
-    // -------- kNN classifier --------
+    // Show/hide record controls
+    if (MODE === "record") {
+      recordControls.style.display = "block";
+      // demo controls stay visible (export/import/merge useful in record too)
+      demoControls.style.display = "block";
+    } else {
+      recordControls.style.display = "none";
+      demoControls.style.display = "block";
+    }
+
+    // =========================
+    // Local profile storage (soft login)
+    // =========================
+    const LS_KEY_INDEX = "asl_profiles_index_v1";
+    const LS_KEY_ACTIVE = "asl_active_profile_v1";
+
+    function nowISO() {
+      return new Date().toISOString();
+    }
+
+    function randId() {
+      return Math.random().toString(36).slice(2, 10) + "-" + Date.now().toString(36);
+    }
+
+    function loadProfilesIndex() {
+      try {
+        const raw = localStorage.getItem(LS_KEY_INDEX);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveProfilesIndex(list) {
+      localStorage.setItem(LS_KEY_INDEX, JSON.stringify(list));
+    }
+
+    function ensureAtLeastOneProfile() {
+      let list = loadProfilesIndex();
+      if (list.length === 0) {
+        const id = randId();
+        list = [{ id, name: "Default", createdAt: nowISO() }];
+        saveProfilesIndex(list);
+        localStorage.setItem(LS_KEY_ACTIVE, id);
+      }
+      return list;
+    }
+
+    function getActiveProfileId() {
+      return localStorage.getItem(LS_KEY_ACTIVE);
+    }
+
+    function setActiveProfileId(id) {
+      localStorage.setItem(LS_KEY_ACTIVE, id);
+    }
+
+    function profileDataKey(id) {
+      return `asl_profile_data_v1_${id}`;
+    }
+
+    function getDeviceHint() {
+      const ua = navigator.userAgent || "";
+      const plat = navigator.platform || "";
+      return `${plat} | ${ua.slice(0, 80)}`;
+    }
+
+    // Per-profile persisted state (dataset + transcript)
+    function loadProfileData(id) {
+      try {
+        const raw = localStorage.getItem(profileDataKey(id));
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        return obj && typeof obj === "object" ? obj : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveProfileData(id, obj) {
+      localStorage.setItem(profileDataKey(id), JSON.stringify(obj));
+    }
+
+    function deleteProfileData(id) {
+      localStorage.removeItem(profileDataKey(id));
+    }
+
+    function rebuildProfileSelect(list, activeId) {
+      profileSelect.innerHTML = "";
+      for (const p of list) {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.name;
+        if (p.id === activeId) opt.selected = true;
+        profileSelect.appendChild(opt);
+      }
+    }
+
+    // =========================
+    // kNN classifier
+    // =========================
     const knn = knnClassifier.create();
 
-    // -------- MediaPipe Tasks Vision --------
+    // =========================
+    // MediaPipe Tasks Vision
+    // =========================
     let handLandmarker = null;
     let drawingUtils = null;
 
-    // -------- Runtime state --------
+    // =========================
+    // Runtime state
+    // =========================
     let stream = null;
     let rafId = null;
     let lastDominantLandmarks = null;
     let lastDominantHandedness = null;
 
-    // Stabilization history: {label, conf, t}
+    // Stabilization history
     let predHistory = [];
     let lastEmitted = { label: null, t: 0 };
 
-    // -------- Vector normalization (center + scale + unit length) --------
+    // Recorder state
+    let recLabelIndex = 0;
+    let recIsRunning = false;
+    let recStableSince = 0;
+    let recLastCaptureAt = 0;
+    let recPrevVec = null; // for motion measurement
+
+    // Autosave throttle
+    let autosaveTimer = null;
+
+    // Active profile in memory
+    let profiles = ensureAtLeastOneProfile();
+    let activeProfileId = getActiveProfileId() || profiles[0].id;
+    if (!profiles.some(p => p.id === activeProfileId)) {
+      activeProfileId = profiles[0].id;
+      setActiveProfileId(activeProfileId);
+    }
+
+    // =========================
+    // Vector normalization (center + scale + unit length)
+    // =========================
     function landmarksToNormalizedVector(lm) {
       const base = lm[0]; // wrist
 
+      // scale reference: avg of wrist->index MCP (5) and wrist->middle MCP (9)
       const dx1 = lm[5].x - base.x, dy1 = lm[5].y - base.y, dz1 = (lm[5].z ?? 0) - (base.z ?? 0);
       const dx2 = lm[9].x - base.x, dy2 = lm[9].y - base.y, dz2 = (lm[9].z ?? 0) - (base.z ?? 0);
       const s1 = Math.hypot(dx1, dy1, dz1);
@@ -217,6 +486,7 @@
         v.push(((p.z ?? 0) - (base.z ?? 0)) / scale);
       }
 
+      // unit-length normalize full vector
       let norm = 0;
       for (const x of v) norm += x * x;
       norm = Math.sqrt(Math.max(1e-12, norm));
@@ -225,7 +495,20 @@
       return v;
     }
 
-    // -------- Stabilization --------
+    // Motion metric between vectors (lower = more stable)
+    function vecDelta(a, b) {
+      if (!a || !b || a.length !== b.length) return Infinity;
+      let s = 0;
+      for (let i = 0; i < a.length; i++) {
+        const d = a[i] - b[i];
+        s += d * d;
+      }
+      return Math.sqrt(s / a.length);
+    }
+
+    // =========================
+    // Stabilization
+    // =========================
     function addPrediction(label, conf) {
       const windowN = Math.max(3, Math.min(30, parseInt(stabWindowEl.value || "12", 10)));
       predHistory.push({ label, conf, t: Date.now() });
@@ -271,6 +554,8 @@
 
     function emitIfStable(label) {
       if (!label) return;
+      // Ensure label is within our static set
+      if (!LABELS.includes(label)) return;
 
       const now = Date.now();
       const debounceMs = Math.max(150, Math.min(4000, parseInt(emitDebounceEl.value || "900", 10)));
@@ -278,22 +563,18 @@
       if (lastEmitted.label === label && (now - lastEmitted.t) < (debounceMs + 250)) return;
       if ((now - lastEmitted.t) < debounceMs) return;
 
-      if (label === "BACKSPACE") {
-        transcriptEl.value = transcriptEl.value.slice(0, -1);
-      } else if (label === "SPACE") {
-        transcriptEl.value += " ";
-      } else {
-        transcriptEl.value += label;
-      }
-
+      transcriptEl.value += label;
       lastEmitted = { label, t: now };
+      scheduleAutosave();
     }
 
-    // -------- Export/Import JSON (kNN dataset persistence) --------
+    // =========================
+    // Dataset JSON (with metadata)
+    // =========================
     function datasetToJSON(dataset) {
       const out = {};
       for (const label of Object.keys(dataset)) {
-        const t = dataset[label];
+        const t = dataset[label]; // Tensor2D
         out[label] = {
           shape: t.shape,
           data: Array.from(t.dataSync())
@@ -311,6 +592,22 @@
       return ds;
     }
 
+    function wrapExport(meta, datasetObj) {
+      return {
+        schema: "asl_knn_dataset_v1",
+        meta,
+        data: datasetObj
+      };
+    }
+
+    function unwrapImport(anyObj) {
+      // supports either old raw dataset {label:{shape,data}} or wrapped {schema,meta,data}
+      if (anyObj && anyObj.schema === "asl_knn_dataset_v1" && anyObj.data) {
+        return { meta: anyObj.meta || null, data: anyObj.data };
+      }
+      return { meta: null, data: anyObj };
+    }
+
     function downloadJSON(filename, obj) {
       const blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
       const a = document.createElement("a");
@@ -320,25 +617,61 @@
       URL.revokeObjectURL(a.href);
     }
 
-    exportBtn.addEventListener("click", () => {
-      const ds = knn.getClassifierDataset();
-      const json = datasetToJSON(ds);
-      downloadJSON("asl_knn_samples.json", json);
-    });
+    function buildMeta() {
+      const p = profiles.find(x => x.id === activeProfileId);
+      return {
+        appVersion: APP_VERSION,
+        exportedAt: nowISO(),
+        profileId: activeProfileId,
+        profileName: p?.name || "Unknown",
+        mode: MODE,
+        deviceHint: getDeviceHint(),
+        labels: LABELS,
+        note: "Static letters only (exclude J/Z). One-hand dominant (largest bbox)."
+      };
+    }
 
-    importInput.addEventListener("change", async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const text = await file.text();
-      const obj = JSON.parse(text);
-      const ds = jsonToDataset(obj);
-      knn.setClassifierDataset(ds);
-      sampleCountEl.textContent = knn.getNumExamples();
-      importInput.value = "";
-      alert("Samples imported.");
-    });
+    // =========================
+    // Merge datasets (multiple JSON files)
+    // =========================
+    function concatTensors(tensors) {
+      // tensors: array of Tensor2D [N, D]
+      if (tensors.length === 0) return null;
+      if (tensors.length === 1) return tensors[0];
+      return tf.concat(tensors, 0);
+    }
 
-    // -------- Dominant hand selection (largest bbox area) --------
+    function mergeDatasetObjects(datasetObjs) {
+      // datasetObjs: array of raw dataset objects {label:{shape,data}} (not wrapped)
+      // returns merged dataset object in same format
+      const merged = {};
+      const labels = new Set();
+      for (const ds of datasetObjs) {
+        for (const k of Object.keys(ds || {})) labels.add(k);
+      }
+      for (const label of labels) {
+        const tensors = [];
+        for (const ds of datasetObjs) {
+          const entry = ds?.[label];
+          if (!entry) continue;
+          try {
+            const t = tf.tensor(entry.data, entry.shape);
+            tensors.push(t);
+          } catch {}
+        }
+        if (tensors.length > 0) {
+          const cat = concatTensors(tensors);
+          merged[label] = { shape: cat.shape, data: Array.from(cat.dataSync()) };
+          tensors.forEach(t => t.dispose && t.dispose());
+          cat.dispose && cat.dispose();
+        }
+      }
+      return merged;
+    }
+
+    // =========================
+    // Dominant hand selection (largest bbox area)
+    // =========================
     function bboxAreaFromLandmarks(lm) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const p of lm) {
@@ -379,7 +712,9 @@
       }
     }
 
-    // -------- MediaPipe init --------
+    // =========================
+    // MediaPipe init
+    // =========================
     async function initHandLandmarker() {
       setStatus("Loading model…");
 
@@ -399,7 +734,9 @@
       drawingUtils = new DrawingUtils(ctx);
     }
 
-    // -------- Render + predict --------
+    // =========================
+    // Render + predict
+    // =========================
     function ensureCanvasSize() {
       const w = videoEl.videoWidth || 640;
       const h = videoEl.videoHeight || 480;
@@ -412,7 +749,7 @@
     async function predictFromLandmarks(lm) {
       if (knn.getNumExamples() <= 0) {
         rawLabelEl.textContent = "NO SAMPLES";
-        stableLabelEl.textContent = "Train first";
+        stableLabelEl.textContent = "Train / import first";
         confEl.textContent = "—";
         return;
       }
@@ -435,6 +772,7 @@
         : `— (ratio ${stable.ratio.toFixed(2)})`;
 
       emitIfStable(stable.label);
+      tensor.dispose && tensor.dispose();
     }
 
     function drawHands(result) {
@@ -455,6 +793,105 @@
       ctx.restore();
     }
 
+    // =========================
+    // Recorder helpers
+    // =========================
+    function getRecTargetLabel() {
+      return LABELS[recLabelIndex] || LABELS[0];
+    }
+
+    function setQualityPill(el, state, text) {
+      el.textContent = text;
+      el.className = "pill";
+      if (state === "ok") el.classList.add("ok");
+      if (state === "bad") el.classList.add("bad");
+    }
+
+    function getDatasetCountsFromKnn() {
+      const ds = knn.getClassifierDataset();
+      const counts = {};
+      for (const label of LABELS) counts[label] = 0;
+
+      for (const label of Object.keys(ds)) {
+        try {
+          const t = ds[label];
+          // t.shape: [N, D]
+          const n = Array.isArray(t.shape) ? (t.shape[0] || 0) : 0;
+          counts[label] = n;
+        } catch {}
+      }
+      return counts;
+    }
+
+    function refreshCountsTable() {
+      const counts = getDatasetCountsFromKnn();
+      countsTbody.innerHTML = "";
+      for (const label of LABELS) {
+        const n = counts[label] || 0;
+        const tr = document.createElement("tr");
+        const tdL = document.createElement("td");
+        const tdN = document.createElement("td");
+        const tdS = document.createElement("td");
+
+        tdL.textContent = label;
+        tdN.textContent = String(n);
+
+        if (n >= REC_GOAL_PER_LABEL) {
+          tdS.innerHTML = `<span class="pill ok">OK</span>`;
+        } else if (n === 0) {
+          tdS.innerHTML = `<span class="pill bad">empty</span>`;
+        } else {
+          tdS.innerHTML = `<span class="pill">in progress</span>`;
+        }
+
+        tr.appendChild(tdL);
+        tr.appendChild(tdN);
+        tr.appendChild(tdS);
+        countsTbody.appendChild(tr);
+      }
+    }
+
+    function updateRecorderHeader() {
+      const label = getRecTargetLabel();
+      const counts = getDatasetCountsFromKnn();
+      const n = counts[label] || 0;
+      recTargetEl.textContent = label;
+      recProgressEl.textContent = `${n}/${REC_GOAL_PER_LABEL}`;
+      refreshCountsTable();
+      sampleCountEl.textContent = knn.getNumExamples();
+    }
+
+    function clearLabelSamples(label) {
+      // Remove only one label from kNN dataset
+      const ds = knn.getClassifierDataset();
+      const newDs = {};
+      for (const k of Object.keys(ds)) {
+        if (k !== label) newDs[k] = ds[k];
+      }
+      knn.setClassifierDataset(newDs);
+      predHistory = [];
+      lastEmitted = { label: null, t: 0 };
+      scheduleAutosave();
+      updateRecorderHeader();
+    }
+
+    function maybeAutoAdvanceIfDone() {
+      const label = getRecTargetLabel();
+      const counts = getDatasetCountsFromKnn();
+      const n = counts[label] || 0;
+      if (n >= REC_GOAL_PER_LABEL) {
+        if (recLabelIndex < LABELS.length - 1) {
+          recLabelIndex++;
+          updateRecorderHeader();
+          recStableSince = 0;
+          recPrevVec = null;
+        }
+      }
+    }
+
+    // =========================
+    // Main loop
+    // =========================
     async function step() {
       if (!handLandmarker) return;
 
@@ -472,18 +909,84 @@
         stableLabelEl.textContent = "—";
         confEl.textContent = "—";
         handInfoEl.textContent = "—";
+
+        // Recorder quality
+        if (MODE === "record") {
+          setQualityPill(qHandEl, "bad", "Hand: not detected");
+          setQualityPill(qSizeEl, "bad", "Size: —");
+          setQualityPill(qMotionEl, "bad", "Motion: —");
+          recStableSince = 0;
+          recPrevVec = null;
+        }
       } else {
         const idx = pickDominantHandIndex(result);
         lastDominantLandmarks = lms[idx];
         lastDominantHandedness = handednessLabel(result, idx);
         handInfoEl.textContent = lastDominantHandedness || `#${idx}`;
+
+        // Predict (for demo/testing)
         await predictFromLandmarks(lastDominantLandmarks);
+
+        // Recorder (auto-capture)
+        if (MODE === "record") {
+          const bboxArea = bboxAreaFromLandmarks(lastDominantLandmarks);
+          const minArea = Math.max(0.02, Math.min(0.5, parseFloat(recMinAreaEl.value || "0.08")));
+          const maxArea = Math.max(minArea + 0.01, Math.min(0.8, parseFloat(recMaxAreaEl.value || "0.35")));
+
+          const vec = landmarksToNormalizedVector(lastDominantLandmarks);
+          const motion = recPrevVec ? vecDelta(vec, recPrevVec) : Infinity;
+          recPrevVec = vec;
+
+          // Quality indicators
+          setQualityPill(qHandEl, "ok", "Hand: detected");
+          if (bboxArea >= minArea && bboxArea <= maxArea) {
+            setQualityPill(qSizeEl, "ok", `Size: ok (${bboxArea.toFixed(3)})`);
+          } else {
+            setQualityPill(qSizeEl, "bad", `Size: adjust (${bboxArea.toFixed(3)})`);
+          }
+
+          // Motion threshold heuristic (tuned for normalized vec)
+          const motionOk = motion !== Infinity && motion < 0.035;
+          setQualityPill(qMotionEl, motionOk ? "ok" : "bad", `Motion: ${motionOk ? "stable" : "moving"} (${motion === Infinity ? "—" : motion.toFixed(4)})`);
+
+          if (recIsRunning) {
+            const holdMs = Math.max(200, Math.min(1200, parseInt(recHoldMsEl.value || "450", 10)));
+            const cooldownMs = Math.max(150, Math.min(2000, parseInt(recCooldownMsEl.value || "300", 10)));
+
+            const sizeOk = bboxArea >= minArea && bboxArea <= maxArea;
+
+            const nowMs = Date.now();
+            const stableNow = sizeOk && motionOk;
+
+            if (stableNow) {
+              if (!recStableSince) recStableSince = nowMs;
+              const held = nowMs - recStableSince;
+
+              if (held >= holdMs && (nowMs - recLastCaptureAt) >= cooldownMs) {
+                // capture
+                const label = getRecTargetLabel();
+                const tensor = tf.tensor(vec, [1, vec.length]);
+                knn.addExample(tensor, label);
+                tensor.dispose && tensor.dispose();
+
+                recLastCaptureAt = nowMs;
+                updateRecorderHeader();
+                scheduleAutosave();
+                maybeAutoAdvanceIfDone();
+              }
+            } else {
+              recStableSince = 0;
+            }
+          }
+        }
       }
 
       rafId = requestAnimationFrame(step);
     }
 
-    // -------- Start/Stop camera loop --------
+    // =========================
+    // Start/Stop camera
+    // =========================
     function humanReadableGetUserMediaError(err) {
       const name = err?.name || "UnknownError";
       const msg = err?.message || "";
@@ -511,7 +1014,6 @@
         await initHandLandmarker();
       }
 
-      // Mobile-friendly constraints (front camera preferred for training)
       const primaryConstraints = {
         video: {
           facingMode: "user",
@@ -529,7 +1031,6 @@
       try {
         stream = await navigator.mediaDevices.getUserMedia(primaryConstraints);
       } catch (e) {
-        // Fallback for devices that dislike constraints
         stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
       }
 
@@ -566,47 +1067,24 @@
       stableLabelEl.textContent = "—";
       confEl.textContent = "—";
       handInfoEl.textContent = "—";
+
+      // recorder stop
+      recIsRunning = false;
+      recStartBtn.disabled = false;
+      recStopBtn.disabled = true;
+      recStableSince = 0;
+      recPrevVec = null;
+      setQualityPill(qHandEl, "bad", "Hand: —");
+      setQualityPill(qSizeEl, "bad", "Size: —");
+      setQualityPill(qMotionEl, "bad", "Motion: —");
     }
 
-    // -------- Training controls --------
-    addSampleBtn.addEventListener("click", () => {
-      if (!lastDominantLandmarks) {
-        alert("No hand detected. Show your hand to the camera first.");
-        return;
-      }
-
-      const label = aslLabelEl.value;
-      const vec = landmarksToNormalizedVector(lastDominantLandmarks);
-      const tensor = tf.tensor(vec, [1, vec.length]);
-
-      knn.addExample(tensor, label);
-      sampleCountEl.textContent = knn.getNumExamples();
-    });
-
-    clearSamplesBtn.addEventListener("click", () => {
-      knn.clearAllClasses();
-      sampleCountEl.textContent = 0;
-      predHistory = [];
-      lastEmitted = { label: null, t: 0 };
-      rawLabelEl.textContent = "—";
-      stableLabelEl.textContent = "—";
-      confEl.textContent = "—";
-    });
-
-    clearTextBtn.addEventListener("click", () => {
-      transcriptEl.value = "";
-      predHistory = [];
-      lastEmitted = { label: null, t: 0 };
-    });
-
-    // ✅ Mobile-safe start handler: no localhost advice, no forced stop on error
     startBtn.addEventListener("click", async () => {
       try {
         await start();
       } catch (err) {
         console.error("Camera start error:", err);
         setStatus("Camera error");
-
         alert(
           "Could not start camera.\n\n" +
           humanReadableGetUserMediaError(err) + "\n\n" +
@@ -620,8 +1098,282 @@
 
     stopBtn.addEventListener("click", stop);
 
-    // -------- Initial sample count --------
+    // =========================
+    // Export / Import / Merge
+    // =========================
+    exportBtn.addEventListener("click", () => {
+      const ds = knn.getClassifierDataset();
+      const json = datasetToJSON(ds);
+      const meta = buildMeta();
+      const wrapped = wrapExport(meta, json);
+
+      const p = profiles.find(x => x.id === activeProfileId);
+      const safeName = (p?.name || "profile").replace(/[^a-z0-9_\-]+/gi, "_");
+      downloadJSON(`asl_dataset_${safeName}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.json`, wrapped);
+    });
+
+    importInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const anyObj = JSON.parse(text);
+        const { data } = unwrapImport(anyObj);
+        const ds = jsonToDataset(data);
+        knn.setClassifierDataset(ds);
+        sampleCountEl.textContent = knn.getNumExamples();
+        refreshCountsTable();
+        updateRecorderHeader();
+        scheduleAutosave();
+        alert("Samples imported into current profile.");
+      } catch (err) {
+        console.error(err);
+        alert("Import failed. Ensure this is a valid dataset JSON.");
+      } finally {
+        importInput.value = "";
+      }
+    });
+
+    mergeInput.addEventListener("change", async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length < 2) {
+        alert("Select 2 or more JSON files to merge.");
+        mergeInput.value = "";
+        return;
+      }
+
+      try {
+        const datasetObjs = [];
+        for (const f of files) {
+          const text = await f.text();
+          const anyObj = JSON.parse(text);
+          const { data } = unwrapImport(anyObj);
+          datasetObjs.push(data);
+        }
+
+        const merged = mergeDatasetObjects(datasetObjs);
+        const meta = buildMeta();
+        meta.mergedAt = nowISO();
+        meta.mergedFilesCount = files.length;
+
+        const wrapped = wrapExport(meta, merged);
+        downloadJSON(`asl_dataset_merged_${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.json`, wrapped);
+        alert("Merged dataset downloaded. Import it into a profile to use.");
+      } catch (err) {
+        console.error(err);
+        alert("Merge failed. Ensure all selected files are valid dataset JSON.");
+      } finally {
+        mergeInput.value = "";
+      }
+    });
+
+    // =========================
+    // Transcript controls
+    // =========================
+    clearTextBtn.addEventListener("click", () => {
+      transcriptEl.value = "";
+      predHistory = [];
+      lastEmitted = { label: null, t: 0 };
+      scheduleAutosave();
+    });
+
+    // =========================
+    // Recorder controls (record mode)
+    // =========================
+    if (MODE === "record") {
+      recStartBtn.addEventListener("click", () => {
+        if (!rafId) {
+          alert("Start the camera first (click Start).");
+          return;
+        }
+        recIsRunning = true;
+        recStartBtn.disabled = true;
+        recStopBtn.disabled = false;
+        recStableSince = 0;
+        recLastCaptureAt = 0;
+        recPrevVec = null;
+      });
+
+      recStopBtn.addEventListener("click", () => {
+        recIsRunning = false;
+        recStartBtn.disabled = false;
+        recStopBtn.disabled = true;
+        recStableSince = 0;
+        recPrevVec = null;
+      });
+
+      recPrevBtn.addEventListener("click", () => {
+        recLabelIndex = Math.max(0, recLabelIndex - 1);
+        updateRecorderHeader();
+        recStableSince = 0;
+        recPrevVec = null;
+      });
+
+      recNextBtn.addEventListener("click", () => {
+        recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
+        updateRecorderHeader();
+        recStableSince = 0;
+        recPrevVec = null;
+      });
+
+      recResetLabelBtn.addEventListener("click", () => {
+        const label = getRecTargetLabel();
+        const ok = confirm(`Reset samples for label "${label}" in current profile?`);
+        if (!ok) return;
+        clearLabelSamples(label);
+      });
+    }
+
+    // =========================
+    // Autosave per profile (dataset + transcript)
+    // =========================
+    function scheduleAutosave() {
+      if (autosaveTimer) return;
+      autosaveTimer = setTimeout(() => {
+        autosaveTimer = null;
+        persistCurrentProfile();
+      }, 600);
+    }
+
+    function persistCurrentProfile() {
+      try {
+        const ds = knn.getClassifierDataset();
+        const json = datasetToJSON(ds);
+        const payload = {
+          schema: "asl_profile_state_v1",
+          savedAt: nowISO(),
+          profileId: activeProfileId,
+          appVersion: APP_VERSION,
+          transcript: transcriptEl.value || "",
+          dataset: json
+        };
+        saveProfileData(activeProfileId, payload);
+      } catch (err) {
+        console.error("Autosave failed:", err);
+      }
+    }
+
+    function loadProfileIntoMemory(profileId) {
+      // Reset
+      knn.clearAllClasses();
+      transcriptEl.value = "";
+      predHistory = [];
+      lastEmitted = { label: null, t: 0 };
+
+      const payload = loadProfileData(profileId);
+      if (payload?.dataset) {
+        try {
+          const ds = jsonToDataset(payload.dataset);
+          knn.setClassifierDataset(ds);
+        } catch (err) {
+          console.error("Failed to load saved dataset:", err);
+        }
+      }
+      if (payload?.transcript) transcriptEl.value = payload.transcript;
+
+      sampleCountEl.textContent = knn.getNumExamples();
+      refreshCountsTable();
+      updateRecorderHeader();
+    }
+
+    // =========================
+    // Profile controls
+    // =========================
+    function setProfileBadge() {
+      const p = profiles.find(x => x.id === activeProfileId);
+      profileBadgeEl.textContent = p ? p.name : "—";
+    }
+
+    function promptProfileName() {
+      const name = prompt("Profile name (e.g., Anna, Pawel-demo):");
+      if (!name) return null;
+      const trimmed = name.trim();
+      if (!trimmed) return null;
+      return trimmed.slice(0, 40);
+    }
+
+    newProfileBtn.addEventListener("click", () => {
+      const name = promptProfileName();
+      if (!name) return;
+
+      const id = randId();
+      profiles.push({ id, name, createdAt: nowISO() });
+      saveProfilesIndex(profiles);
+
+      activeProfileId = id;
+      setActiveProfileId(id);
+      rebuildProfileSelect(profiles, activeProfileId);
+      setProfileBadge();
+
+      // Fresh empty profile
+      knn.clearAllClasses();
+      transcriptEl.value = "";
+      persistCurrentProfile();
+      refreshCountsTable();
+      updateRecorderHeader();
+      alert(`Profile created: ${name}`);
+    });
+
+    deleteProfileBtn.addEventListener("click", () => {
+      if (profiles.length <= 1) {
+        alert("You must keep at least one profile.");
+        return;
+      }
+      const p = profiles.find(x => x.id === activeProfileId);
+      const ok = confirm(`Delete profile "${p?.name || "Unknown"}" from this device? This cannot be undone.`);
+      if (!ok) return;
+
+      // stop recorder
+      recIsRunning = false;
+
+      // delete stored data + index entry
+      deleteProfileData(activeProfileId);
+      profiles = profiles.filter(x => x.id !== activeProfileId);
+      saveProfilesIndex(profiles);
+
+      // switch to first
+      activeProfileId = profiles[0].id;
+      setActiveProfileId(activeProfileId);
+
+      rebuildProfileSelect(profiles, activeProfileId);
+      setProfileBadge();
+      loadProfileIntoMemory(activeProfileId);
+    });
+
+    profileSelect.addEventListener("change", () => {
+      // Persist current before switch
+      persistCurrentProfile();
+
+      activeProfileId = profileSelect.value;
+      setActiveProfileId(activeProfileId);
+      setProfileBadge();
+
+      // stop recorder
+      recIsRunning = false;
+      recStartBtn && (recStartBtn.disabled = false);
+      recStopBtn && (recStopBtn.disabled = true);
+
+      loadProfileIntoMemory(activeProfileId);
+    });
+
+    // =========================
+    // Initial boot
+    // =========================
+    rebuildProfileSelect(profiles, activeProfileId);
+    setProfileBadge();
+    loadProfileIntoMemory(activeProfileId);
+
+    // Recorder initial header
+    updateRecorderHeader();
+
+    // Update sample count
     sampleCountEl.textContent = knn.getNumExamples();
+
+    // Persist on unload (best-effort)
+    window.addEventListener("beforeunload", () => {
+      try { persistCurrentProfile(); } catch {}
+    });
+
   </script>
 </body>
 </html>
