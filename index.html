@@ -21,13 +21,19 @@
     .hr { height: 1px; background: #eee; margin: 10px 0; }
     label.small { font-size: 12px; color: #555; display:block; margin: 0 0 6px 0; }
     .inline { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .warn { color: #8a3b00; background:#fff3cd; border:1px solid #ffeeba; padding:10px; border-radius:12px; }
   </style>
 </head>
 <body>
   <h1>ASL Fingerspelling → English (Local MVP)</h1>
   <div class="muted">
-    Windows + Chrome/Edge. Local inference (no cloud). MediaPipe Tasks Vision HandLandmarker + TF.js kNN.
+    Local inference (no cloud). MediaPipe Tasks Vision HandLandmarker + TF.js kNN.
     MVP targets static ASL letters (A–Y). J/Z are motion letters (next step).
+  </div>
+
+  <div id="httpsHint" class="warn" style="display:none; margin-top:12px;">
+    This page is not served over HTTPS. Camera access may be blocked on mobile.
+    Please use an HTTPS URL (e.g., your domain) or localhost on the same device.
   </div>
 
   <div class="row" style="margin-top:12px;">
@@ -67,6 +73,9 @@
 
       <div class="mono">
         Training tip: for each letter collect 20–40 samples across different angles, distances, and lighting.
+      </div>
+      <div class="mono" style="margin-top:6px;">
+        Mobile tip: if camera doesn’t start, ensure camera permission is allowed for this site and refresh.
       </div>
     </div>
 
@@ -162,6 +171,18 @@
 
     function setStatus(s) { statusEl.textContent = s; }
 
+    // Show hint if not HTTPS (mobile usually needs HTTPS for camera; localhost is also OK)
+    (function showHttpsHint() {
+      const httpsHint = document.getElementById("httpsHint");
+      const isLocalhost =
+        location.hostname === "localhost" ||
+        location.hostname === "127.0.0.1" ||
+        location.hostname === "[::1]";
+      if (!isLocalhost && location.protocol !== "https:") {
+        httpsHint.style.display = "block";
+      }
+    })();
+
     // -------- kNN classifier --------
     const knn = knnClassifier.create();
 
@@ -181,10 +202,8 @@
 
     // -------- Vector normalization (center + scale + unit length) --------
     function landmarksToNormalizedVector(lm) {
-      // lm is array of 21 {x,y,z}
       const base = lm[0]; // wrist
 
-      // scale reference: average of wrist->index MCP (5) and wrist->middle MCP (9)
       const dx1 = lm[5].x - base.x, dy1 = lm[5].y - base.y, dz1 = (lm[5].z ?? 0) - (base.z ?? 0);
       const dx2 = lm[9].x - base.x, dy2 = lm[9].y - base.y, dz2 = (lm[9].z ?? 0) - (base.z ?? 0);
       const s1 = Math.hypot(dx1, dy1, dz1);
@@ -198,7 +217,6 @@
         v.push(((p.z ?? 0) - (base.z ?? 0)) / scale);
       }
 
-      // unit-length normalize full vector
       let norm = 0;
       for (const x of v) norm += x * x;
       norm = Math.sqrt(Math.max(1e-12, norm));
@@ -209,9 +227,8 @@
 
     // -------- Stabilization --------
     function addPrediction(label, conf) {
-      const now = Date.now();
       const windowN = Math.max(3, Math.min(30, parseInt(stabWindowEl.value || "12", 10)));
-      predHistory.push({ label, conf, t: now });
+      predHistory.push({ label, conf, t: Date.now() });
       if (predHistory.length > windowN) predHistory.shift();
     }
 
@@ -258,7 +275,6 @@
       const now = Date.now();
       const debounceMs = Math.max(150, Math.min(4000, parseInt(emitDebounceEl.value || "900", 10)));
 
-      // anti-spam: avoid repeated same label too quickly
       if (lastEmitted.label === label && (now - lastEmitted.t) < (debounceMs + 250)) return;
       if ((now - lastEmitted.t) < debounceMs) return;
 
@@ -277,7 +293,7 @@
     function datasetToJSON(dataset) {
       const out = {};
       for (const label of Object.keys(dataset)) {
-        const t = dataset[label]; // Tensor2D
+        const t = dataset[label];
         out[label] = {
           shape: t.shape,
           data: Array.from(t.dataSync())
@@ -354,7 +370,6 @@
     }
 
     function handednessLabel(result, idx) {
-      // result.handedness is an array of arrays: [{categoryName:"Left"/"Right", score:...}]
       try {
         const h = result.handedness?.[idx]?.[0];
         if (!h) return null;
@@ -407,8 +422,6 @@
 
       const pred = await knn.predictClass(tensor, 5);
       const label = pred.label;
-
-      // confidence for chosen label (if available)
       const conf = (pred.confidences && pred.confidences[label]) ? pred.confidences[label] : 0;
 
       rawLabelEl.textContent = label;
@@ -417,7 +430,9 @@
       addPrediction(label, conf);
 
       const stable = getStablePrediction();
-      stableLabelEl.textContent = stable.label ? `${stable.label} (ratio ${stable.ratio.toFixed(2)})` : `— (ratio ${stable.ratio.toFixed(2)})`;
+      stableLabelEl.textContent = stable.label
+        ? `${stable.label} (ratio ${stable.ratio.toFixed(2)})`
+        : `— (ratio ${stable.ratio.toFixed(2)})`;
 
       emitIfStable(stable.label);
     }
@@ -462,7 +477,6 @@
         lastDominantLandmarks = lms[idx];
         lastDominantHandedness = handednessLabel(result, idx);
         handInfoEl.textContent = lastDominantHandedness || `#${idx}`;
-
         await predictFromLandmarks(lastDominantLandmarks);
       }
 
@@ -470,6 +484,24 @@
     }
 
     // -------- Start/Stop camera loop --------
+    function humanReadableGetUserMediaError(err) {
+      const name = err?.name || "UnknownError";
+      const msg = err?.message || "";
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        return "Camera permission denied. Allow camera access for this site in browser settings, then refresh.";
+      }
+      if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+        return "No camera found on this device.";
+      }
+      if (name === "NotReadableError" || name === "TrackStartError") {
+        return "Camera is busy or unavailable. Close other apps using the camera and try again.";
+      }
+      if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError") {
+        return "Requested camera constraints not supported. Try again (fallback should apply).";
+      }
+      return `Camera error: ${name}${msg ? " — " + msg : ""}`;
+    }
+
     async function start() {
       if (rafId) return;
 
@@ -479,10 +511,27 @@
         await initHandLandmarker();
       }
 
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
+      // Mobile-friendly constraints (front camera preferred for training)
+      const primaryConstraints = {
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        },
         audio: false
-      });
+      };
+
+      const fallbackConstraints = {
+        video: true,
+        audio: false
+      };
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(primaryConstraints);
+      } catch (e) {
+        // Fallback for devices that dislike constraints
+        stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+      }
 
       videoEl.srcObject = stream;
       await videoEl.play();
@@ -509,7 +558,6 @@
       startBtn.disabled = false;
       stopBtn.disabled = true;
 
-      // reset transient state
       predHistory = [];
       lastEmitted = { label: null, t: 0 };
       lastDominantLandmarks = null;
@@ -551,12 +599,24 @@
       lastEmitted = { label: null, t: 0 };
     });
 
-    startBtn.addEventListener("click", () => start().catch(err => {
-      console.error(err);
-      setStatus("Error");
-      alert("Could not start. Use Chrome/Edge and run via http://localhost:8000 (not file://). Check camera permissions.");
-      stop();
-    }));
+    // ✅ Mobile-safe start handler: no localhost advice, no forced stop on error
+    startBtn.addEventListener("click", async () => {
+      try {
+        await start();
+      } catch (err) {
+        console.error("Camera start error:", err);
+        setStatus("Camera error");
+
+        alert(
+          "Could not start camera.\n\n" +
+          humanReadableGetUserMediaError(err) + "\n\n" +
+          "Tips:\n" +
+          "• Ensure camera permission is ALLOWED for this site\n" +
+          "• Use HTTPS (or localhost on same device)\n" +
+          "• Refresh the page and try again\n"
+        );
+      }
+    });
 
     stopBtn.addEventListener("click", stop);
 
