@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ASL MVP (Profiles + Recorder Stable Capture)</title>
+  <title>ASL MVP (Profiles + Recorder + Test Only)</title>
   <style>
     :root { --bg:#fff; --fg:#111; --muted:#555; --border:#ddd; --soft:#fafafa; --danger:#b00020; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; color:var(--fg); background:var(--bg); }
@@ -28,13 +28,11 @@
     .tabBtn.active { background:#111; color:#fff; border-color:#111; }
     .hide { display:none !important; }
 
-    /* Desktop: panels side-by-side; mobile: stack */
     @media (min-width: 1100px) {
       .row { flex-wrap: nowrap; }
       .panel { flex: 0 0 calc(50% - 8px); }
     }
 
-    /* Modal overlays */
     .modalOverlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.55);
@@ -66,7 +64,7 @@
   <h1>ASL MVP (Local Profiles + Recorder)</h1>
   <div class="muted">
     Local inference (no cloud). MediaPipe HandLandmarker + TF.js kNN for Demo.
-    Recorder uses <b>stability-based auto-capture</b> (does not depend on kNN).
+    Recorder uses <b>stability-based auto-capture</b>. New: <b>Test-only</b> in Recorder (no capture).
   </div>
 
   <div class="tabs">
@@ -117,7 +115,7 @@
         </div>
 
         <div class="hr"></div>
-        <div class="mono">Demo: kNN recognition + stabilization + debounce. Use this for testing/presentation.</div>
+        <div class="mono">Demo: kNN recognition + stabilization + debounce. Use for testing/presentation.</div>
       </div>
 
       <div class="panel">
@@ -177,7 +175,7 @@
         <video id="videoRec" playsinline autoplay muted></video>
 
         <div class="inline" style="margin-top:10px;">
-          <button id="recStartBtn">Start recording</button>
+          <button id="recStartBtn">Start recorder</button>
           <button id="recStopBtn" disabled>Stop</button>
           <button id="recResetLetterBtn">Reset current letter</button>
         </div>
@@ -186,8 +184,19 @@
         <div class="kpi">
           <span class="badge">Target: <b id="recTargetLabel">—</b></span>
           <span class="badge">Progress: <b id="recProgress">0/30</b></span>
-          <span class="badge">Auto-capture: <b id="recAutoState">OFF</b></span>
+          <span class="badge">Recorder: <b id="recAutoState">OFF</b></span>
           <span class="badge">Motion: <b id="recMotion">—</b></span>
+        </div>
+
+        <!-- NEW: Capture toggle + Test-only preview -->
+        <div class="inline" style="margin-top:10px;">
+          <label class="badge" style="cursor:pointer;">
+            <input id="recCaptureEnabled" type="checkbox" checked style="margin-right:8px;">
+            Capture enabled
+          </label>
+          <span class="badge">Test raw: <b id="recTestRaw">—</b></span>
+          <span class="badge">Test stable: <b id="recTestStable">—</b></span>
+          <span class="badge">Conf: <b id="recTestConf">—</b></span>
         </div>
 
         <div class="hr"></div>
@@ -222,8 +231,8 @@
 
         <div class="hr"></div>
         <div class="mono">
-          Recorder: auto-capture adds a sample for the selected target letter when your hand is stable enough (low motion) for the hold time.
-          After goal is reached (e.g. 30/30) it stops and shows Stop & Confirm before moving on.
+          Recorder: when Capture enabled is ON, it auto-adds samples for the selected target letter.
+          When OFF, it runs <b>test-only</b> preview (raw/stable/conf) and does NOT add samples.
         </div>
       </div>
 
@@ -250,7 +259,7 @@
         </div>
 
         <div class="mono" style="margin-top:8px;">
-          Tip: Use your friend profile in Recording mode. Use your profile in Demo mode.
+          Tip: Keep Friend profile in Recording mode. Use Boss profile in Demo mode.
         </div>
       </div>
     </div>
@@ -424,6 +433,12 @@
     const recExportBtn = document.getElementById("recExportBtn");
     const recImportInput = document.getElementById("recImportInput");
 
+    // NEW: Capture enabled + test preview
+    const recCaptureEnabledEl = document.getElementById("recCaptureEnabled");
+    const recTestRawEl = document.getElementById("recTestRaw");
+    const recTestStableEl = document.getElementById("recTestStable");
+    const recTestConfEl = document.getElementById("recTestConf");
+
     // Advance overlay
     const advanceOverlay = document.getElementById("advanceOverlay");
     const advanceMsg = document.getElementById("advanceMsg");
@@ -550,26 +565,20 @@
       const profiles = loadProfiles();
       if (!profiles[name]) return;
 
-      // persist previous
       persistActiveProfileDataset();
 
       localStorage.setItem(LS_ACTIVE, name);
 
-      // load dataset
       knn.clearAllClasses();
       if (profiles[name].datasetJSON) {
-        try {
-          knn.setClassifierDataset(jsonToDataset(profiles[name].datasetJSON));
-        } catch (e) {
-          console.warn("Failed to load dataset for profile", name, e);
-        }
+        try { knn.setClassifierDataset(jsonToDataset(profiles[name].datasetJSON)); }
+        catch (e) { console.warn("Failed to load dataset for profile", name, e); }
       }
 
       refreshProfileUI();
       sampleCountEl.textContent = knn.getNumExamples();
       activeSamplesKpi.textContent = knn.getNumExamples();
 
-      // suggest tab by mode
       if (profiles[name].mode === "recording") setActiveTab("recorder");
       else setActiveTab("demo");
 
@@ -619,7 +628,6 @@
       }
     }
 
-    // Vector normalization (center + scale + unit length)
     function landmarksToNormalizedVector(lm) {
       const base = lm[0];
       const dx1 = lm[5].x - base.x, dy1 = lm[5].y - base.y, dz1 = (lm[5].z ?? 0) - (base.z ?? 0);
@@ -643,7 +651,6 @@
       return v;
     }
 
-    // Dominant hand selection (largest bbox)
     function bboxAreaFromLandmarks(lm) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const p of lm) {
@@ -712,7 +719,7 @@
     }
 
     // -----------------------
-    // kNN predict (Demo only)
+    // kNN predict
     // -----------------------
     async function knnPredict(lm) {
       if (knn.getNumExamples() <= 0) return { label: null, conf: 0 };
@@ -849,7 +856,6 @@
       handInfoEl.textContent = "—";
     }
 
-    // Demo controls
     startBtn.addEventListener("click", () => demoStart().catch(err => {
       console.error(err);
       setStatus("Error");
@@ -925,7 +931,7 @@
     });
 
     // -----------------------
-    // Recorder (stability-based)
+    // Recorder (stability-based) + Test-only preview
     // -----------------------
     const LABELS = ["A","B","C","D","E","F","G","H","I","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y"];
     let recLabelIndex = 0;
@@ -934,6 +940,42 @@
     let recStableSince = 0;
     let recPrevVec = null;
     let pendingAdvance = null;
+
+    // Recorder test stabilization (separate, fixed params)
+    let recPredHistory = [];
+    function recAddPrediction(label, conf) {
+      const windowN = 12;
+      recPredHistory.push({ label, conf, t: Date.now() });
+      if (recPredHistory.length > windowN) recPredHistory.shift();
+    }
+    function recGetStablePrediction() {
+      if (recPredHistory.length === 0) return { label: null, conf: 0, ratio: 0 };
+      const minConf = 0.55;
+      const majority = 0.7;
+
+      const counts = new Map();
+      const confSum = new Map();
+      let considered = 0;
+
+      for (const p of recPredHistory) {
+        if (p.conf < minConf) continue;
+        considered++;
+        counts.set(p.label, (counts.get(p.label) || 0) + 1);
+        confSum.set(p.label, (confSum.get(p.label) || 0) + p.conf);
+      }
+      if (considered === 0) return { label: null, conf: 0, ratio: 0 };
+
+      let bestLabel = null, bestCount = -1, bestAvg = -1;
+      for (const [label, c] of counts.entries()) {
+        const avg = (confSum.get(label) || 0) / c;
+        if (c > bestCount || (c === bestCount && avg > bestAvg)) {
+          bestLabel = label; bestCount = c; bestAvg = avg;
+        }
+      }
+      const ratio = bestCount / considered;
+      if (ratio >= majority) return { label: bestLabel, conf: bestAvg, ratio };
+      return { label: null, conf: bestAvg, ratio };
+    }
 
     function getRecTargetLabel() { return LABELS[recLabelIndex] || "A"; }
 
@@ -990,9 +1032,12 @@
       if (!pendingAdvance) return;
       recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
       recStableSince = 0; recPrevVec = null;
+      recPredHistory = [];
+      recTestRawEl.textContent = "—";
+      recTestStableEl.textContent = "—";
+      recTestConfEl.textContent = "—";
       hideAdvanceOverlay();
       updateRecorderHeader();
-      // auto-resume
       recIsRunning = true;
       recStartBtn.disabled = true; recStopBtn.disabled = false;
       updateRecorderHeader();
@@ -1039,14 +1084,13 @@
       updateRecorderHeader();
     }
 
-    // Recorder loop: throttle to ~15fps for smoother performance
+    // Recorder loop: throttle to ~15fps
     let recLastFrameTs = 0;
 
     async function recorderStep(ts) {
       if (!handLandmarker) return;
 
-      // throttle
-      if (ts - recLastFrameTs < 66) { // ~15fps
+      if (ts - recLastFrameTs < 66) {
         rafRec = requestAnimationFrame(recorderStep);
         return;
       }
@@ -1061,6 +1105,10 @@
         recStableSince = 0;
         recPrevVec = null;
         recMotionEl.textContent = "—";
+        recPredHistory = [];
+        recTestRawEl.textContent = "—";
+        recTestStableEl.textContent = "—";
+        recTestConfEl.textContent = "—";
         rafRec = requestAnimationFrame(recorderStep);
         return;
       }
@@ -1068,7 +1116,6 @@
       const idx = pickDominantHandIndex(result);
       lastRecDominantLandmarks = lms[idx];
 
-      // compute motion from vector delta (stability)
       const vec = landmarksToNormalizedVector(lastRecDominantLandmarks);
       let vecDelta = 999;
       if (recPrevVec) {
@@ -1080,10 +1127,30 @@
         vecDelta = Math.sqrt(sum);
       }
       recPrevVec = vec;
-
       recMotionEl.textContent = isFinite(vecDelta) ? vecDelta.toFixed(3) : "—";
 
-      if (recIsRunning && lastRecDominantLandmarks) {
+      // Test-only preview (does NOT emit transcript, does NOT capture)
+      if (knn.getNumExamples() > 0) {
+        const pred = await knnPredict(lastRecDominantLandmarks);
+        if (pred.label) {
+          recTestRawEl.textContent = pred.label;
+          recTestConfEl.textContent = pred.conf.toFixed(2);
+          recAddPrediction(pred.label, pred.conf);
+          const stable = recGetStablePrediction();
+          recTestStableEl.textContent = stable.label ? `${stable.label} (${stable.ratio.toFixed(2)})` : `— (${stable.ratio.toFixed(2)})`;
+        } else {
+          recTestRawEl.textContent = "NO SAMPLES";
+          recTestStableEl.textContent = "—";
+          recTestConfEl.textContent = "—";
+        }
+      } else {
+        recTestRawEl.textContent = "NO SAMPLES";
+        recTestStableEl.textContent = "—";
+        recTestConfEl.textContent = "—";
+      }
+
+      // Capture branch (only when enabled)
+      if (recIsRunning && lastRecDominantLandmarks && recCaptureEnabledEl.checked) {
         const holdMs = Math.max(100, Math.min(3000, parseInt(recHoldMsEl.value || "450", 10)));
         const cooldownMs = Math.max(50, Math.min(3000, parseInt(recCooldownMsEl.value || "220", 10)));
         const stabThresh = Math.max(0.01, Math.min(0.50, parseFloat(recStabThreshEl.value || "0.08")));
@@ -1147,6 +1214,12 @@
       recStableSince = 0;
       recPrevVec = null;
       recMotionEl.textContent = "—";
+
+      recPredHistory = [];
+      recTestRawEl.textContent = "—";
+      recTestStableEl.textContent = "—";
+      recTestConfEl.textContent = "—";
+
       updateRecorderHeader();
       setStatus("Idle");
     }
@@ -1162,11 +1235,13 @@
     recPrevBtn.addEventListener("click", () => {
       recLabelIndex = Math.max(0, recLabelIndex - 1);
       recStableSince = 0; recPrevVec = null;
+      recPredHistory = [];
       updateRecorderHeader();
     });
     recNextBtn.addEventListener("click", () => {
       recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
       recStableSince = 0; recPrevVec = null;
+      recPredHistory = [];
       updateRecorderHeader();
     });
 
@@ -1211,7 +1286,7 @@
     });
 
     // -----------------------
-    // Profiles UI events
+    // Profiles UI
     // -----------------------
     profileCreateBtn.addEventListener("click", () => {
       const res = createProfile(newProfileName.value, newProfileMode.value);
@@ -1253,16 +1328,19 @@
       profileModalNewName.value = "";
     });
 
-    // Stop & Confirm overlay
-    advanceStayBtn.addEventListener("click", () => advanceOverlay.style.display = "none");
+    // Advance overlay
+    advanceStayBtn.addEventListener("click", () => hideAdvanceOverlay());
     advanceContinueBtn.addEventListener("click", () => {
-      if (!pendingAdvance) { advanceOverlay.style.display = "none"; return; }
+      if (!pendingAdvance) { hideAdvanceOverlay(); return; }
       recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
       recStableSince = 0; recPrevVec = null;
+      recPredHistory = [];
+      recTestRawEl.textContent = "—";
+      recTestStableEl.textContent = "—";
+      recTestConfEl.textContent = "—";
       pendingAdvance = null;
-      advanceOverlay.style.display = "none";
+      hideAdvanceOverlay();
       updateRecorderHeader();
-      // resume
       recIsRunning = true;
       recStartBtn.disabled = true; recStopBtn.disabled = false;
       updateRecorderHeader();
@@ -1279,10 +1357,11 @@
     updateRecorderHeader();
     applyRecPreset("normal");
 
-    // choose default tab by mode
-    const profiles = loadProfiles();
-    const active = getActiveProfileName();
-    setActiveTab((profiles[active]?.mode || "demo") === "recording" ? "recorder" : "demo");
+    // Demo-specific header init
+    rawLabelEl.textContent = "—";
+    stableLabelEl.textContent = "—";
+    confEl.textContent = "—";
+    handInfoEl.textContent = "—";
   </script>
 </body>
 </html>
