@@ -3,374 +3,347 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ASL Fingerspelling → English (Local MVP)</title>
+  <title>ASL Fingerspelling MVP (Local Profiles + Recorder)</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; }
+    :root {
+      --bg:#fff; --fg:#111; --muted:#555; --border:#ddd; --soft:#fafafa;
+      --primary:#111; --danger:#b00020;
+    }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; color:var(--fg); background:var(--bg); }
     h1 { margin: 0 0 8px 0; }
-    .muted { color: #555; }
-    .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
-    .panel { border: 1px solid #ddd; border-radius: 12px; padding: 12px; }
-    video, canvas { width: 520px; max-width: 100%; border-radius: 12px; background: #000; }
+    .muted { color: var(--muted); }
+    .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+    .panel { border:1px solid var(--border); border-radius:12px; padding:12px; background:#fff; flex: 1 1 520px; min-width: 300px; }
+    video, canvas { width: 520px; max-width:100%; border-radius:12px; background:#000; }
     .big { font-size: 22px; font-weight: 700; }
-    button, select, input { padding: 10px 12px; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    button, select, input { padding:10px 12px; border-radius:10px; border:1px solid #ccc; background:#fff; cursor:pointer; }
+    button:disabled { opacity:0.5; cursor:not-allowed; }
     button:active { transform: translateY(1px); }
-    textarea { width: 520px; max-width: 100%; height: 120px; border-radius: 12px; padding: 10px; border: 1px solid #ddd; }
-    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid #ddd; background: #fafafa; }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
-    .hr { height: 1px; background: #eee; margin: 10px 0; }
-    label.small { font-size: 12px; color: #555; display:block; margin: 0 0 6px 0; }
+    textarea { width:520px; max-width:100%; height:120px; border-radius:12px; padding:10px; border:1px solid var(--border); }
+    .badge { display:inline-block; padding: 4px 10px; border-radius:999px; border:1px solid var(--border); background:var(--soft); }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
+    .hr { height:1px; background:#eee; margin:10px 0; }
+    label.small { font-size:12px; color: var(--muted); display:block; margin: 0 0 6px 0; }
     .inline { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .warn { color: #8a3b00; background:#fff3cd; border:1px solid #ffeeba; padding:10px; border-radius:12px; }
-    .ok { color:#0b5d1e; background:#e8f5ee; border:1px solid #cfe9da; padding:8px 10px; border-radius:12px; }
-    .bad { color:#7a0b0b; background:#fdeaea; border:1px solid #f5c7c7; padding:8px 10px; border-radius:12px; }
-    .tiny { font-size: 11px; color:#666; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border-bottom: 1px solid #eee; padding: 6px 8px; text-align: left; font-size: 12px; }
-    th { color:#444; font-weight: 700; background: #fafafa; }
-    .pill { display:inline-block; padding:2px 8px; border:1px solid #ddd; border-radius: 999px; background:#fff; font-size: 11px; }
-    .split { display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center; }
-    .btnPrimary { border-color:#222; font-weight:700; }
-    .btnGhost { background:#fafafa; }
-    .hidden { display:none !important; }
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; margin: 12px 0; }
+    .tabBtn { padding:8px 10px; border-radius:10px; border:1px solid var(--border); background:var(--soft); }
+    .tabBtn.active { background:#111; color:#fff; border-color:#111; }
+    .hide { display:none !important; }
 
-    /* Focus mode for Recording */
-    .focusWrap { display:none; }
-    .focusOn .row { display:none; }
-    .focusOn .focusWrap { display:block; }
-    .focusHeader { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
-    .focusTarget { font-size: 34px; font-weight: 900; letter-spacing: 1px; }
-    .progressBarWrap { width: 100%; max-width: 520px; height: 14px; border-radius: 999px; border:1px solid #ddd; background:#fafafa; overflow:hidden; }
-    .progressBar { height: 100%; width: 0%; background:#222; }
-    .focusControls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; width: 100%; max-width: 520px; }
-    .focusKpis { width: 100%; max-width: 520px; display:flex; gap:10px; flex-wrap:wrap; }
-    .focusKpis .pill { padding:6px 10px; font-size: 12px; }
-    .focusSmall { width: 100%; max-width: 520px; }
+    /* Desktop: panels side-by-side, mobile safe (stack by default) */
+    @media (min-width: 1100px) {
+      .row { flex-wrap: nowrap; }
+      .panel { flex: 0 0 calc(50% - 8px); }
+    }
 
     /* Modal */
     .modalOverlay {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.45);
-      display:none; align-items:center; justify-content:center;
-      padding: 16px; z-index: 9999;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 18px;
     }
     .modal {
-      width: 100%; max-width: 520px;
-      background:#fff; border-radius: 16px;
-      border: 1px solid #e6e6e6;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+      width: min(560px, 100%);
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid var(--border);
       padding: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
     }
-    .modalTitle { font-size: 16px; font-weight: 800; margin: 0 0 8px 0; }
-    .modalRow { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .modalActions { display:flex; gap:10px; justify-content:flex-end; margin-top: 12px; }
-    .typeCardWrap { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-    .typeCard {
-      border: 1px solid #ddd; border-radius: 14px; padding: 12px;
-      cursor:pointer; user-select:none;
-      background:#fafafa;
-    }
-    .typeCard.active { border-color:#222; background:#fff; }
-    .typeCard h3 { margin:0 0 6px 0; font-size: 14px; }
-    .typeCard p { margin:0; font-size: 12px; color:#555; }
+    .modalTitle { font-weight:800; font-size:18px; margin-bottom:6px; }
+    .modalActions { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+    .btnPrimary { background:#111; color:#fff; border-color:#111; }
+    .btnGhost { background:#fff; }
+    .btnDanger { background: var(--danger); color:#fff; border-color: var(--danger); }
+
+    .kpi { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .kpi .badge { background:#f6f6f6; }
   </style>
 </head>
 <body>
-  <h1>ASL Fingerspelling → English (Local MVP)</h1>
+  <h1>ASL Fingerspelling MVP (Local Profiles + Recorder)</h1>
   <div class="muted">
     Local inference (no cloud). MediaPipe Tasks Vision HandLandmarker + TF.js kNN.
-    MVP targets static ASL letters (A–Y, excluding J/Z motion). Profiles decide: Recording vs Demo/Test.
+    Use <b>Profiles</b> to separate datasets (your demo vs your friend's recording).
   </div>
 
-  <div id="httpsHint" class="warn" style="display:none; margin-top:12px;">
-    This page is not served over HTTPS. Camera access may be blocked on mobile.
-    Please use an HTTPS URL (e.g., your domain) or localhost on the same device.
+  <div class="tabs">
+    <button class="tabBtn active" id="tabDemoBtn">Demo</button>
+    <button class="tabBtn" id="tabRecorderBtn">Recorder</button>
+    <button class="tabBtn" id="tabProfilesBtn">Profiles</button>
   </div>
 
-  <div class="panel" style="margin-top:12px;">
-    <div class="split">
-      <div class="inline">
-        <span class="badge">Profile: <span id="profileBadge">—</span></span>
-        <span class="badge">Type: <span id="typeBadge">—</span></span>
-        <span class="badge">App: <span id="appVer">1.4</span></span>
+  <!-- Profiles / Mode bar -->
+  <div class="inline" style="margin: 6px 0 14px 0;">
+    <span class="badge">Active profile: <b id="activeProfileName">—</b></span>
+    <span class="badge">Mode: <b id="activeProfileMode">—</b></span>
+    <button id="switchProfileBtn">Switch / Create Profile</button>
+    <span class="badge" id="status">Idle</span>
+  </div>
+
+  <!-- DEMO TAB -->
+  <div id="tabDemo">
+    <div class="row">
+      <div class="panel">
+        <div class="muted">Camera</div>
+        <video id="video" playsinline autoplay muted></video>
+
+        <div class="inline" style="margin-top:10px;">
+          <button id="startBtn">Start</button>
+          <button id="stopBtn" disabled>Stop</button>
+          <button id="clearTextBtn">Clear text</button>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="grid">
+          <div>
+            <label class="small">Stabilization window (frames)</label>
+            <input id="stabWindow" type="number" min="3" max="30" value="12" />
+          </div>
+          <div>
+            <label class="small">Required majority (0.50–0.95)</label>
+            <input id="stabMajority" type="number" step="0.05" min="0.5" max="0.95" value="0.7" />
+          </div>
+          <div>
+            <label class="small">Min confidence (0–1)</label>
+            <input id="minConf" type="number" step="0.05" min="0" max="1" value="0.55" />
+          </div>
+          <div>
+            <label class="small">Emit debounce (ms)</label>
+            <input id="emitDebounce" type="number" min="150" max="4000" value="900" />
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <div class="mono">
+          Demo tip: Use this tab to test recognition quality. Recorder tab is for clean sample capture.
+        </div>
       </div>
 
+      <div class="panel">
+        <div class="muted">Live View + Output</div>
+        <canvas id="canvas"></canvas>
+
+        <div style="margin-top:10px;">
+          <div class="big">Stable: <span id="stableLabel">—</span></div>
+          <div class="big">Raw: <span id="rawLabel">—</span></div>
+          <div class="muted">Confidence: <span id="conf">—</span> | Hand used: <span id="handInfo">—</span></div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="inline">
+          <label class="small" style="margin:0;">ASL label (train):</label>
+          <select id="aslLabel">
+            <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
+            <option value="F">F</option><option value="G">G</option><option value="H">H</option><option value="I">I</option>
+            <option value="K">K</option><option value="L">L</option><option value="M">M</option><option value="N">N</option><option value="O">O</option>
+            <option value="P">P</option><option value="Q">Q</option><option value="R">R</option><option value="S">S</option><option value="T">T</option>
+            <option value="U">U</option><option value="V">V</option><option value="W">W</option><option value="X">X</option><option value="Y">Y</option>
+            <option value="SPACE">SPACE</option>
+            <option value="BACKSPACE">BACKSPACE</option>
+          </select>
+
+          <button id="addSampleBtn">Add sample</button>
+          <button id="clearSamplesBtn">Clear samples</button>
+          <span class="badge">Samples: <span id="sampleCount">0</span></span>
+        </div>
+
+        <div class="inline" style="margin-top:10px;">
+          <button id="exportBtn">Export JSON</button>
+          <label class="badge" style="cursor:pointer;">
+            Import JSON
+            <input id="importInput" type="file" accept="application/json" style="display:none;">
+          </label>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="muted">Transcript</div>
+        <textarea id="transcript" placeholder="Letters will appear here..."></textarea>
+
+        <div class="mono" style="margin-top:8px;">
+          Notes: Detects up to 2 hands; classification uses the largest hand (dominant by bbox area).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECORDER TAB -->
+  <div id="tabRecorder" class="hide">
+    <div class="row">
+      <div class="panel">
+        <div class="muted">Recorder Camera</div>
+        <video id="videoRec" playsinline autoplay muted></video>
+
+        <div class="inline" style="margin-top:10px;">
+          <button id="recStartBtn">Start recording</button>
+          <button id="recStopBtn" disabled>Stop</button>
+          <button id="recResetLetterBtn">Reset current letter</button>
+        </div>
+
+        <div class="hr"></div>
+        <div class="kpi">
+          <span class="badge">Target: <b id="recTargetLabel">—</b></span>
+          <span class="badge">Progress: <b id="recProgress">0/30</b></span>
+          <span class="badge">Auto-capture: <b id="recAutoState">OFF</b></span>
+          <span class="badge">Stable raw: <b id="recRawLabel">—</b></span>
+          <span class="badge">Conf: <b id="recConf">—</b></span>
+        </div>
+
+        <div class="hr"></div>
+        <div class="grid">
+          <div>
+            <label class="small">Goal per letter</label>
+            <input id="recGoal" type="number" min="5" max="200" value="30" />
+          </div>
+          <div>
+            <label class="small">Min confidence</label>
+            <input id="recMinConf" type="number" step="0.05" min="0" max="1" value="0.70" />
+          </div>
+          <div>
+            <label class="small">Hold stable (ms)</label>
+            <input id="recHoldMs" type="number" min="100" max="3000" value="450" />
+          </div>
+          <div>
+            <label class="small">Cooldown between samples (ms)</label>
+            <input id="recCooldownMs" type="number" min="50" max="3000" value="220" />
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <div class="mono">
+          Recorder rules: one dominant hand; auto-capture adds a sample only when the prediction is stable enough and held for the required time.
+          After <b>30/30</b>, recording stops and you must confirm the next letter (Stop & Confirm).
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="muted">Recorder Live View</div>
+        <canvas id="canvasRec"></canvas>
+
+        <div class="hr"></div>
+
+        <div class="inline">
+          <button id="recPrevBtn">Prev</button>
+          <button id="recNextBtn">Next</button>
+          <span class="badge">Letters: A–Y (no J/Z)</span>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="inline">
+          <button id="recExportBtn">Export profile JSON</button>
+          <label class="badge" style="cursor:pointer;">
+            Import into profile
+            <input id="recImportInput" type="file" accept="application/json" style="display:none;">
+          </label>
+        </div>
+
+        <div class="mono" style="margin-top:8px;">
+          Tip: Use <b>your friend</b> profile in Recording mode. Use your profile in Demo mode for presentation/testing.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILES TAB -->
+  <div id="tabProfiles" class="hide">
+    <div class="panel">
+      <div class="muted">Profiles (Local)</div>
+      <div class="hr"></div>
+
       <div class="inline">
-        <label class="small" style="margin:0;">Switch profile</label>
+        <span class="badge">Profiles stored in this browser (LocalStorage)</span>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="inline">
+        <label class="small" style="margin:0;">Select</label>
         <select id="profileSelect"></select>
-        <button id="newProfileBtn" class="btnPrimary">New profile</button>
-        <button id="editProfileBtn">Edit profile</button>
-        <button id="deleteProfileBtn" title="Deletes only locally on this device">Delete</button>
-      </div>
-    </div>
-
-    <div class="inline" style="margin-top:10px;">
-      <span class="tiny">
-        Profiles separate datasets locally (no server). Create a Recording profile for your friend. Use Demo/Test profiles for presentation and evaluation.
-      </span>
-    </div>
-  </div>
-
-  <!-- Focus Mode (Recording) -->
-  <div class="focusWrap" style="margin-top:12px;">
-    <div class="panel">
-      <div class="focusHeader">
-        <div class="inline">
-          <span class="badge">Recording Focus</span>
-          <span class="badge">Profile: <b id="focusProfile">—</b></span>
-        </div>
-        <div class="inline">
-          <button id="focusToggleBtn" class="btnGhost">Exit focus</button>
-          <button id="focusAdvancedBtn">Advanced</button>
-        </div>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="muted">Camera</div>
-      <video id="videoFocus" playsinline autoplay muted></video>
-
-      <div class="inline" style="margin-top:10px;">
-        <button id="startBtnF" class="btnPrimary">Start</button>
-        <button id="stopBtnF" disabled>Stop</button>
-        <span class="badge" id="statusF">Idle</span>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="focusSmall">
-        <div class="focusTarget">TARGET: <span id="focusTarget">A</span></div>
-        <div class="muted">Progress: <b id="focusProgress">0/30</b></div>
-
-        <div class="progressBarWrap" style="margin-top:8px;">
-          <div class="progressBar" id="focusBar"></div>
-        </div>
-      </div>
-
-      <div class="focusControls" style="margin-top:10px;">
-        <div class="inline">
-          <button id="recPrevBtnF">Prev</button>
-          <button id="recNextBtnF">Next</button>
-          <button id="recResetLabelBtnF">Reset this label</button>
-        </div>
-        <div class="inline">
-          <button id="recStartBtnF" class="btnPrimary">Start auto-capture</button>
-          <button id="recStopBtnF" disabled>Stop</button>
-          <button id="recManualBtnF">Capture now</button>
-        </div>
-      </div>
-
-      <div class="focusKpis" style="margin-top:10px;">
-        <span id="qHandF" class="pill">Hand: —</span>
-        <span id="qSizeF" class="pill">Size: —</span>
-        <span id="qMotionF" class="pill">Motion: —</span>
-      </div>
-
-      <div class="mono" style="margin-top:8px;">
-        Hold the pose steady. Auto-capture triggers when hand is detected, size is in range, and motion is stable.
-      </div>
-    </div>
-  </div>
-
-  <!-- Main (Advanced) UI -->
-  <div class="row" id="mainRow" style="margin-top:12px;">
-    <div class="panel">
-      <div class="muted">Camera</div>
-      <video id="video" playsinline autoplay muted></video>
-
-      <div class="inline" style="margin-top:10px;">
-        <button id="startBtn">Start</button>
-        <button id="stopBtn" disabled>Stop</button>
-        <button id="clearTextBtn">Clear text</button>
-        <span class="badge" id="status">Idle</span>
+        <button id="profileActivateBtn" class="btnPrimary">Activate</button>
+        <button id="profileDeleteBtn" class="btnDanger">Delete</button>
       </div>
 
       <div class="hr"></div>
 
       <div class="grid">
         <div>
-          <label class="small">Stabilization window (frames)</label>
-          <input id="stabWindow" type="number" min="3" max="30" value="12" />
+          <label class="small">New profile name</label>
+          <input id="newProfileName" placeholder="e.g., FriendRecorder" />
         </div>
         <div>
-          <label class="small">Required majority (0.50–0.95)</label>
-          <input id="stabMajority" type="number" step="0.05" min="0.5" max="0.95" value="0.7" />
+          <label class="small">Mode</label>
+          <select id="newProfileMode">
+            <option value="recording">Recording</option>
+            <option value="demo">Demo</option>
+          </select>
         </div>
-        <div>
-          <label class="small">Min confidence (0–1)</label>
-          <input id="minConf" type="number" step="0.05" min="0" max="1" value="0.55" />
-        </div>
-        <div>
-          <label class="small">Emit debounce (ms)</label>
-          <input id="emitDebounce" type="number" min="150" max="4000" value="900" />
-        </div>
+      </div>
+      <div class="inline" style="margin-top:10px;">
+        <button id="profileCreateBtn">Create profile</button>
+        <span class="badge">Active samples: <span id="activeSamplesKpi">0</span></span>
       </div>
 
       <div class="hr"></div>
 
       <div class="mono">
-        Tip: On mobile, camera usually requires HTTPS. If it fails, allow camera permission for this site and refresh.
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="muted">Live View + Output</div>
-      <canvas id="canvas"></canvas>
-
-      <div style="margin-top:10px;">
-        <div class="big">Stable: <span id="stableLabel">—</span></div>
-        <div class="big">Raw: <span id="rawLabel">—</span></div>
-        <div class="muted">Confidence: <span id="conf">—</span> | Hand used: <span id="handInfo">—</span></div>
-      </div>
-
-      <div class="hr"></div>
-
-      <!-- COMMON DATA TOOLS -->
-      <div id="dataTools">
-        <div class="inline">
-          <button id="exportBtn">Export JSON</button>
-
-          <label class="badge" style="cursor:pointer;">
-            Import JSON
-            <input id="importInput" type="file" accept="application/json" style="display:none;">
-          </label>
-
-          <label class="badge" style="cursor:pointer;">
-            Merge JSON (2+)
-            <input id="mergeInput" type="file" accept="application/json" multiple style="display:none;">
-          </label>
-
-          <span class="badge">Samples: <span id="sampleCount">0</span></span>
-        </div>
-
-        <div class="mono" style="margin-top:8px;">
-          Export/import is per profile. Merge combines multiple datasets into one file. Import the merged file into a “master” profile.
-        </div>
-      </div>
-
-      <!-- RECORDING TOOLS (only for Recording profiles) -->
-      <div id="recordControls" style="display:none;">
-        <div class="hr"></div>
-
-        <div class="inline" style="justify-content:space-between;">
-          <div class="inline">
-            <span class="badge">Recorder</span>
-            <span class="badge">Target: <b id="recTarget">—</b></span>
-            <span class="badge">Progress: <b id="recProgress">0/30</b></span>
-          </div>
-          <div class="inline">
-            <button id="recPrevBtn">Prev</button>
-            <button id="recNextBtn">Next</button>
-          </div>
-        </div>
-
-        <div class="inline" style="margin-top:10px;">
-          <label class="small" style="margin:0;">Strictness</label>
-          <select id="recPreset">
-            <option value="normal">Normal</option>
-            <option value="relaxed">Relaxed</option>
-            <option value="strict">Strict</option>
-          </select>
-
-          <button id="recStartBtn">Start auto-capture</button>
-          <button id="recStopBtn" disabled>Stop auto-capture</button>
-          <button id="recManualBtn">Capture now</button>
-          <button id="recResetLabelBtn" title="Clears only current label samples">Reset this label</button>
-          <span class="badge">Per-label goal: <b>30</b></span>
-        </div>
-
-        <div class="grid" style="margin-top:10px;">
-          <div>
-            <label class="small">Stability hold (ms)</label>
-            <input id="recHoldMs" type="number" min="200" max="1200" value="450" />
-          </div>
-          <div>
-            <label class="small">Capture cooldown (ms)</label>
-            <input id="recCooldownMs" type="number" min="150" max="2000" value="300" />
-          </div>
-          <div>
-            <label class="small">Hand size min (bbox area)</label>
-            <input id="recMinArea" type="number" step="0.01" min="0.02" max="0.5" value="0.08" />
-          </div>
-          <div>
-            <label class="small">Hand size max (bbox area)</label>
-            <input id="recMaxArea" type="number" step="0.01" min="0.05" max="0.8" value="0.35" />
-          </div>
-          <div>
-            <label class="small">Motion threshold</label>
-            <input id="recMotionThresh" type="number" step="0.005" min="0.010" max="0.120" value="0.035" />
-          </div>
-        </div>
-
-        <div class="inline" style="margin-top:10px;">
-          <span id="qHand" class="pill">Hand: —</span>
-          <span id="qSize" class="pill">Size: —</span>
-          <span id="qMotion" class="pill">Motion: —</span>
-        </div>
-
-        <div class="mono" style="margin-top:8px;">
-          Recorder tip: hold the exact pose steady. The app will auto-capture when motion is low and hand size is in range.
-        </div>
-      </div>
-
-      <!-- DEMO NOTE -->
-      <div id="demoNote" class="mono" style="display:none; margin-top:10px;">
-        Recording is disabled in this profile. Switch to a Recording profile to collect samples.
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="muted">Transcript</div>
-      <textarea id="transcript" placeholder="Letters will appear here (Demo/Test profiles)."></textarea>
-
-      <div class="hr"></div>
-
-      <div class="muted">Samples per label (current profile)</div>
-      <div style="max-height:180px; overflow:auto; border:1px solid #eee; border-radius:12px;">
-        <table id="countsTable">
-          <thead>
-            <tr>
-              <th>Label</th>
-              <th>Samples</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <div class="mono" style="margin-top:8px;">
-        Notes: Detects up to 2 hands; classification uses the largest hand (dominant by bbox area).
+        Note: Profiles are per-device/per-browser. To move between laptops, use Export JSON on Recorder/Demo and Import on the other device.
       </div>
     </div>
   </div>
 
-  <!-- Modal: Create/Edit Profile -->
-  <div class="modalOverlay" id="profileModalOverlay" role="dialog" aria-modal="true" aria-hidden="true">
+  <!-- Profile Switch Modal -->
+  <div class="modalOverlay" id="profileModal">
     <div class="modal">
-      <div class="modalTitle" id="profileModalTitle">Create profile</div>
-      <div class="muted tiny">Profiles are saved locally on this device. No server, no cloud.</div>
+      <div class="modalTitle">Switch / Create Profile</div>
+      <div class="muted">Pick an existing profile or create a new one. Mode controls which tab is intended (Recording vs Demo).</div>
+      <div class="hr"></div>
+
+      <div class="inline">
+        <label class="small" style="margin:0;">Existing</label>
+        <select id="profileModalSelect"></select>
+        <button id="profileModalActivateBtn" class="btnPrimary">Activate</button>
+      </div>
 
       <div class="hr"></div>
 
-      <label class="small">Profile name</label>
-      <input id="profileNameInput" type="text" placeholder="e.g., Anna, Pawel Demo" style="width:100%;" />
-
-      <div class="typeCardWrap">
-        <div class="typeCard" id="typeCardRecord" tabindex="0">
-          <h3>Recording</h3>
-          <p>Collect samples. Shows Recording Focus and Recorder tools.</p>
+      <div class="grid">
+        <div>
+          <label class="small">New profile name</label>
+          <input id="profileModalNewName" placeholder="e.g., BossDemo / FriendRecording" />
         </div>
-        <div class="typeCard" id="typeCardDemo" tabindex="0">
-          <h3>Demo/Test</h3>
-          <p>Presentation + testing. Recorder disabled to avoid accidental recording.</p>
+        <div>
+          <label class="small">Mode</label>
+          <select id="profileModalNewMode">
+            <option value="recording">Recording</option>
+            <option value="demo">Demo</option>
+          </select>
         </div>
       </div>
+      <div class="inline" style="margin-top:10px;">
+        <button id="profileModalCreateBtn">Create & Activate</button>
+        <button id="profileModalCloseBtn" class="btnGhost">Close</button>
+      </div>
+    </div>
+  </div>
 
+  <!-- Recorder Advance Overlay (Option A) -->
+  <div class="modalOverlay" id="advanceOverlay">
+    <div class="modal">
+      <div class="modalTitle">Letter completed</div>
+      <div class="muted" id="advanceMsg">—</div>
+      <div class="hr"></div>
       <div class="modalActions">
-        <button id="profileModalCancel" class="btnGhost">Cancel</button>
-        <button id="profileModalSave" class="btnPrimary">Save</button>
+        <button id="advanceStayBtn" class="btnGhost">Stay on current</button>
+        <button id="advanceContinueBtn" class="btnPrimary">Continue</button>
       </div>
     </div>
   </div>
@@ -382,24 +355,41 @@
   <script type="module">
     import { FilesetResolver, HandLandmarker, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
-    // =========================
-    // Config
-    // =========================
-    const APP_VERSION = "1.4";
-    const LABELS = ["A","B","C","D","E","F","G","H","I","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y"];
-    const REC_GOAL_PER_LABEL = 30;
+    // -----------------------------
+    // Tabs
+    // -----------------------------
+    const tabDemoBtn = document.getElementById("tabDemoBtn");
+    const tabRecorderBtn = document.getElementById("tabRecorderBtn");
+    const tabProfilesBtn = document.getElementById("tabProfilesBtn");
+    const tabDemo = document.getElementById("tabDemo");
+    const tabRecorder = document.getElementById("tabRecorder");
+    const tabProfiles = document.getElementById("tabProfiles");
 
-    const PRESETS = {
-      relaxed: { holdMs: 320, cooldownMs: 240, minArea: 0.06, maxArea: 0.45, motionThresh: 0.055 },
-      normal:  { holdMs: 450, cooldownMs: 300, minArea: 0.08, maxArea: 0.35, motionThresh: 0.035 },
-      strict:  { holdMs: 650, cooldownMs: 380, minArea: 0.10, maxArea: 0.30, motionThresh: 0.022 }
-    };
+    function setActiveTab(name) {
+      tabDemoBtn.classList.toggle("active", name === "demo");
+      tabRecorderBtn.classList.toggle("active", name === "recorder");
+      tabProfilesBtn.classList.toggle("active", name === "profiles");
+      tabDemo.classList.toggle("hide", name !== "demo");
+      tabRecorder.classList.toggle("hide", name !== "recorder");
+      tabProfiles.classList.toggle("hide", name !== "profiles");
+    }
 
-    // =========================
-    // UI refs (advanced)
-    // =========================
-    document.getElementById("appVer").textContent = APP_VERSION;
+    tabDemoBtn.addEventListener("click", () => setActiveTab("demo"));
+    tabRecorderBtn.addEventListener("click", () => setActiveTab("recorder"));
+    tabProfilesBtn.addEventListener("click", () => setActiveTab("profiles"));
 
+    // -----------------------------
+    // UI refs (top bar)
+    // -----------------------------
+    const activeProfileNameEl = document.getElementById("activeProfileName");
+    const activeProfileModeEl = document.getElementById("activeProfileMode");
+    const switchProfileBtn = document.getElementById("switchProfileBtn");
+    const statusEl = document.getElementById("status");
+    function setStatus(s) { statusEl.textContent = s; }
+
+    // -----------------------------
+    // Demo refs
+    // -----------------------------
     const videoEl = document.getElementById("video");
     const canvasEl = document.getElementById("canvas");
     const ctx = canvasEl.getContext("2d");
@@ -407,7 +397,6 @@
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
     const clearTextBtn = document.getElementById("clearTextBtn");
-    const statusEl = document.getElementById("status");
 
     const stableLabelEl = document.getElementById("stableLabel");
     const rawLabelEl = document.getElementById("rawLabel");
@@ -415,318 +404,251 @@
     const handInfoEl = document.getElementById("handInfo");
     const transcriptEl = document.getElementById("transcript");
 
+    const aslLabelEl = document.getElementById("aslLabel");
+    const addSampleBtn = document.getElementById("addSampleBtn");
+    const clearSamplesBtn = document.getElementById("clearSamplesBtn");
+    const sampleCountEl = document.getElementById("sampleCount");
     const exportBtn = document.getElementById("exportBtn");
     const importInput = document.getElementById("importInput");
-    const mergeInput = document.getElementById("mergeInput");
-    const sampleCountEl = document.getElementById("sampleCount");
 
     const stabWindowEl = document.getElementById("stabWindow");
     const stabMajorityEl = document.getElementById("stabMajority");
     const minConfEl = document.getElementById("minConf");
     const emitDebounceEl = document.getElementById("emitDebounce");
 
-    // Profile UI
-    const profileSelect = document.getElementById("profileSelect");
-    const newProfileBtn = document.getElementById("newProfileBtn");
-    const editProfileBtn = document.getElementById("editProfileBtn");
-    const deleteProfileBtn = document.getElementById("deleteProfileBtn");
-    const profileBadgeEl = document.getElementById("profileBadge");
-    const typeBadgeEl = document.getElementById("typeBadge");
+    // -----------------------------
+    // Recorder refs
+    // -----------------------------
+    const videoRec = document.getElementById("videoRec");
+    const canvasRec = document.getElementById("canvasRec");
+    const ctxRec = canvasRec.getContext("2d");
 
-    // Record UI (advanced)
-    const recordControls = document.getElementById("recordControls");
-    const demoNote = document.getElementById("demoNote");
-    const recTargetEl = document.getElementById("recTarget");
-    const recProgressEl = document.getElementById("recProgress");
     const recStartBtn = document.getElementById("recStartBtn");
     const recStopBtn = document.getElementById("recStopBtn");
-    const recPrevBtn = document.getElementById("recPrevBtn");
-    const recNextBtn = document.getElementById("recNextBtn");
-    const recResetLabelBtn = document.getElementById("recResetLabelBtn");
-    const recManualBtn = document.getElementById("recManualBtn");
+    const recResetLetterBtn = document.getElementById("recResetLetterBtn");
 
-    const recPresetEl = document.getElementById("recPreset");
+    const recTargetLabelEl = document.getElementById("recTargetLabel");
+    const recProgressEl = document.getElementById("recProgress");
+    const recAutoStateEl = document.getElementById("recAutoState");
+    const recRawLabelEl = document.getElementById("recRawLabel");
+    const recConfEl = document.getElementById("recConf");
+
+    const recGoalEl = document.getElementById("recGoal");
+    const recMinConfEl = document.getElementById("recMinConf");
     const recHoldMsEl = document.getElementById("recHoldMs");
     const recCooldownMsEl = document.getElementById("recCooldownMs");
-    const recMinAreaEl = document.getElementById("recMinArea");
-    const recMaxAreaEl = document.getElementById("recMaxArea");
-    const recMotionThreshEl = document.getElementById("recMotionThresh");
 
-    const qHandEl = document.getElementById("qHand");
-    const qSizeEl = document.getElementById("qSize");
-    const qMotionEl = document.getElementById("qMotion");
+    const recPrevBtn = document.getElementById("recPrevBtn");
+    const recNextBtn = document.getElementById("recNextBtn");
 
-    const countsTbody = document.querySelector("#countsTable tbody");
+    const recExportBtn = document.getElementById("recExportBtn");
+    const recImportInput = document.getElementById("recImportInput");
 
-    // Focus UI (recording)
-    const bodyEl = document.body;
-    const focusWrap = document.querySelector(".focusWrap");
-    const focusProfileEl = document.getElementById("focusProfile");
-    const focusToggleBtn = document.getElementById("focusToggleBtn");
-    const focusAdvancedBtn = document.getElementById("focusAdvancedBtn");
+    // Advance overlay (Option A)
+    const advanceOverlay = document.getElementById("advanceOverlay");
+    const advanceMsg = document.getElementById("advanceMsg");
+    const advanceStayBtn = document.getElementById("advanceStayBtn");
+    const advanceContinueBtn = document.getElementById("advanceContinueBtn");
 
-    const videoFocusEl = document.getElementById("videoFocus");
-    const startBtnF = document.getElementById("startBtnF");
-    const stopBtnF = document.getElementById("stopBtnF");
-    const statusF = document.getElementById("statusF");
+    // Profiles tab refs
+    const profileSelect = document.getElementById("profileSelect");
+    const profileActivateBtn = document.getElementById("profileActivateBtn");
+    const profileDeleteBtn = document.getElementById("profileDeleteBtn");
+    const newProfileName = document.getElementById("newProfileName");
+    const newProfileMode = document.getElementById("newProfileMode");
+    const profileCreateBtn = document.getElementById("profileCreateBtn");
+    const activeSamplesKpi = document.getElementById("activeSamplesKpi");
 
-    const focusTargetEl = document.getElementById("focusTarget");
-    const focusProgressEl = document.getElementById("focusProgress");
-    const focusBarEl = document.getElementById("focusBar");
+    // Profile modal refs
+    const profileModal = document.getElementById("profileModal");
+    const profileModalSelect = document.getElementById("profileModalSelect");
+    const profileModalActivateBtn = document.getElementById("profileModalActivateBtn");
+    const profileModalNewName = document.getElementById("profileModalNewName");
+    const profileModalNewMode = document.getElementById("profileModalNewMode");
+    const profileModalCreateBtn = document.getElementById("profileModalCreateBtn");
+    const profileModalCloseBtn = document.getElementById("profileModalCloseBtn");
 
-    const recPrevBtnF = document.getElementById("recPrevBtnF");
-    const recNextBtnF = document.getElementById("recNextBtnF");
-    const recResetLabelBtnF = document.getElementById("recResetLabelBtnF");
-    const recStartBtnF = document.getElementById("recStartBtnF");
-    const recStopBtnF = document.getElementById("recStopBtnF");
-    const recManualBtnF = document.getElementById("recManualBtnF");
-
-    const qHandF = document.getElementById("qHandF");
-    const qSizeF = document.getElementById("qSizeF");
-    const qMotionF = document.getElementById("qMotionF");
-
-    // Modal UI
-    const modalOverlay = document.getElementById("profileModalOverlay");
-    const modalTitle = document.getElementById("profileModalTitle");
-    const modalNameInput = document.getElementById("profileNameInput");
-    const typeCardRecord = document.getElementById("typeCardRecord");
-    const typeCardDemo = document.getElementById("typeCardDemo");
-    const modalCancel = document.getElementById("profileModalCancel");
-    const modalSave = document.getElementById("profileModalSave");
-
-    function setStatus(s) { statusEl.textContent = s; statusF.textContent = s; }
-    function setFocusOn(on) { bodyEl.classList.toggle("focusOn", !!on); }
-
-    // HTTPS hint
-    (function showHttpsHint() {
-      const httpsHint = document.getElementById("httpsHint");
-      const isLocalhost = ["localhost","127.0.0.1","[::1]"].includes(location.hostname);
-      if (!isLocalhost && location.protocol !== "https:") httpsHint.style.display = "block";
-    })();
-
-    // =========================
-    // Local Profiles storage
-    // =========================
-    const LS_KEY_INDEX = "asl_profiles_index_v3";
-    const LS_KEY_ACTIVE = "asl_active_profile_v3";
-
-    function nowISO() { return new Date().toISOString(); }
-    function randId() { return Math.random().toString(36).slice(2, 10) + "-" + Date.now().toString(36); }
-    function getDeviceHint() {
-      const ua = navigator.userAgent || "";
-      const plat = navigator.platform || "";
-      return `${plat} | ${ua.slice(0, 80)}`;
-    }
-
-    function loadProfilesIndex() {
-      try {
-        const raw = localStorage.getItem(LS_KEY_INDEX);
-        if (!raw) return [];
-        const arr = JSON.parse(raw);
-        return Array.isArray(arr) ? arr : [];
-      } catch { return []; }
-    }
-
-    function saveProfilesIndex(list) {
-      localStorage.setItem(LS_KEY_INDEX, JSON.stringify(list));
-    }
-
-    function ensureAtLeastOneProfile() {
-      let list = loadProfilesIndex();
-      if (list.length === 0) {
-        const id = randId();
-        list = [{ id, name: "Default Demo", type: "demo", createdAt: nowISO(), focusDefault: false }];
-        saveProfilesIndex(list);
-        localStorage.setItem(LS_KEY_ACTIVE, id);
-      }
-      return list;
-    }
-
-    function getActiveProfileId() { return localStorage.getItem(LS_KEY_ACTIVE); }
-    function setActiveProfileId(id) { localStorage.setItem(LS_KEY_ACTIVE, id); }
-    function profileDataKey(id) { return `asl_profile_state_v3_${id}`; }
-
-    function loadProfileData(id) {
-      try {
-        const raw = localStorage.getItem(profileDataKey(id));
-        if (!raw) return null;
-        const obj = JSON.parse(raw);
-        return obj && typeof obj === "object" ? obj : null;
-      } catch { return null; }
-    }
-
-    function saveProfileData(id, obj) {
-      localStorage.setItem(profileDataKey(id), JSON.stringify(obj));
-    }
-
-    function deleteProfileData(id) { localStorage.removeItem(profileDataKey(id)); }
-
-    // =========================
-    // kNN
-    // =========================
+    // -----------------------------
+    // kNN classifier (shared)
+    // -----------------------------
     const knn = knnClassifier.create();
 
-    // =========================
-    // MediaPipe
-    // =========================
+    // -----------------------------
+    // MediaPipe Tasks Vision
+    // -----------------------------
     let handLandmarker = null;
     let drawingUtils = null;
 
-    // =========================
-    // Runtime state
-    // =========================
-    let stream = null;
-    let rafId = null;
+    let streamDemo = null;
+    let rafDemo = null;
     let lastDominantLandmarks = null;
-    let lastDominantHandedness = null;
 
-    let predHistory = [];
-    let lastEmitted = { label: null, t: 0 };
+    let streamRec = null;
+    let rafRec = null;
+    let lastRecDominantLandmarks = null;
 
-    let recLabelIndex = 0;
-    let recIsRunning = false;
-    let recStableSince = 0;
-    let recLastCaptureAt = 0;
-    let recPrevVec = null;
+    // -----------------------------
+    // Local profiles (LocalStorage)
+    // -----------------------------
+    const LS_KEY = "asl_profiles_v1";
+    const LS_ACTIVE = "asl_active_profile_v1";
 
-    let autosaveTimer = null;
-
-    // Profiles
-    let profiles = ensureAtLeastOneProfile();
-    let activeProfileId = getActiveProfileId() || profiles[0].id;
-    if (!profiles.some(p => p.id === activeProfileId)) {
-      activeProfileId = profiles[0].id;
-      setActiveProfileId(activeProfileId);
+    function loadProfiles() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        const obj = raw ? JSON.parse(raw) : {};
+        return (obj && typeof obj === "object") ? obj : {};
+      } catch { return {}; }
     }
-
-    function getProfileById(id) { return profiles.find(p => p.id === id) || null; }
-
-    function rebuildProfileSelect() {
-      profileSelect.innerHTML = "";
-      for (const p of profiles) {
-        const opt = document.createElement("option");
-        opt.value = p.id;
-        opt.textContent = `${p.name} (${p.type === "record" ? "Recording" : "Demo/Test"})`;
-        if (p.id === activeProfileId) opt.selected = true;
-        profileSelect.appendChild(opt);
+    function saveProfiles(p) {
+      localStorage.setItem(LS_KEY, JSON.stringify(p));
+    }
+    function ensureDefaultProfiles() {
+      const p = loadProfiles();
+      const keys = Object.keys(p);
+      if (keys.length === 0) {
+        p["BossDemo"] = { mode: "demo", datasetJSON: null, createdAt: Date.now() };
+        p["FriendRecording"] = { mode: "recording", datasetJSON: null, createdAt: Date.now() };
+        saveProfiles(p);
+        localStorage.setItem(LS_ACTIVE, "BossDemo");
+      } else if (!localStorage.getItem(LS_ACTIVE)) {
+        localStorage.setItem(LS_ACTIVE, keys[0]);
       }
     }
 
-    function setProfileBadges() {
-      const p = getProfileById(activeProfileId);
-      profileBadgeEl.textContent = p?.name || "—";
-      typeBadgeEl.textContent = p?.type === "record" ? "Recording" : "Demo/Test";
-      focusProfileEl.textContent = p?.name || "—";
+    function datasetToJSON(dataset) {
+      const out = {};
+      for (const label of Object.keys(dataset)) {
+        const t = dataset[label];
+        out[label] = { shape: t.shape, data: Array.from(t.dataSync()) };
+      }
+      return out;
+    }
+    function jsonToDataset(obj) {
+      const ds = {};
+      for (const label of Object.keys(obj)) {
+        const { shape, data } = obj[label];
+        ds[label] = tf.tensor(data, shape);
+      }
+      return ds;
     }
 
-    function applyProfileTypeUI() {
-      const p = getProfileById(activeProfileId);
-      const isRecord = p?.type === "record";
+    function setActiveProfile(name) {
+      const profiles = loadProfiles();
+      if (!profiles[name]) return;
 
-      recordControls.style.display = isRecord ? "block" : "none";
-      demoNote.style.display = isRecord ? "none" : "block";
+      // save current dataset into currently active profile first
+      persistActiveProfileDataset();
 
-      transcriptEl.placeholder = isRecord
-        ? "Transcript is mainly for demo/testing. Recording focuses on collecting samples."
-        : "Letters will appear here (Demo/Test profiles).";
+      // switch
+      localStorage.setItem(LS_ACTIVE, name);
+      const prof = profiles[name];
 
-      // Focus default: ON for recording profiles
-      const shouldFocus = isRecord ? true : false;
-      setFocusOn(shouldFocus);
+      activeProfileNameEl.textContent = name;
+      activeProfileModeEl.textContent = prof.mode;
+
+      // load dataset into knn
+      knn.clearAllClasses();
+      if (prof.datasetJSON) {
+        try {
+          const ds = jsonToDataset(prof.datasetJSON);
+          knn.setClassifierDataset(ds);
+        } catch (e) {
+          console.warn("Failed to load datasetJSON for profile", name, e);
+        }
+      }
+
+      refreshProfileUI();
+
+      // Suggest tab based on mode (non-destructive)
+      if (prof.mode === "recording") setActiveTab("recorder");
+      else setActiveTab("demo");
+
+      // Update counters
+      sampleCountEl.textContent = knn.getNumExamples();
+      activeSamplesKpi.textContent = knn.getNumExamples();
+      updateRecorderHeader();
+      setStatus("Idle");
     }
 
-    // =========================
-    // Modal logic (Create/Edit)
-    // =========================
-    let modalMode = "create"; // "create" | "edit"
-    let modalSelectedType = "demo";
-
-    function setTypeCards(type) {
-      modalSelectedType = type;
-      typeCardRecord.classList.toggle("active", type === "record");
-      typeCardDemo.classList.toggle("active", type === "demo");
+    function getActiveProfileName() {
+      return localStorage.getItem(LS_ACTIVE) || "";
     }
 
-    function openProfileModal(mode) {
-      modalMode = mode;
-      const p = getProfileById(activeProfileId);
+    function persistActiveProfileDataset() {
+      const name = getActiveProfileName();
+      if (!name) return;
+      const profiles = loadProfiles();
+      if (!profiles[name]) return;
 
-      if (mode === "create") {
-        modalTitle.textContent = "Create profile";
-        modalNameInput.value = "";
-        setTypeCards("record"); // default for new profiles (recommended)
+      const ds = knn.getClassifierDataset();
+      const json = datasetToJSON(ds);
+
+      profiles[name].datasetJSON = json;
+      profiles[name].updatedAt = Date.now();
+      saveProfiles(profiles);
+    }
+
+    function refreshProfileUI() {
+      const profiles = loadProfiles();
+      const names = Object.keys(profiles).sort((a,b)=>a.localeCompare(b));
+      const active = getActiveProfileName();
+
+      function fillSelect(sel) {
+        sel.innerHTML = "";
+        for (const n of names) {
+          const opt = document.createElement("option");
+          opt.value = n; opt.textContent = `${n} (${profiles[n].mode})`;
+          if (n === active) opt.selected = true;
+          sel.appendChild(opt);
+        }
+      }
+      fillSelect(profileSelect);
+      fillSelect(profileModalSelect);
+
+      // top bar
+      if (profiles[active]) {
+        activeProfileNameEl.textContent = active;
+        activeProfileModeEl.textContent = profiles[active].mode;
       } else {
-        modalTitle.textContent = "Edit profile";
-        modalNameInput.value = p?.name || "";
-        setTypeCards(p?.type === "record" ? "record" : "demo");
+        activeProfileNameEl.textContent = "—";
+        activeProfileModeEl.textContent = "—";
       }
 
-      modalOverlay.style.display = "flex";
-      modalOverlay.setAttribute("aria-hidden", "false");
-      setTimeout(() => modalNameInput.focus(), 0);
+      activeSamplesKpi.textContent = knn.getNumExamples();
     }
 
-    function closeProfileModal() {
-      modalOverlay.style.display = "none";
-      modalOverlay.setAttribute("aria-hidden", "true");
+    function createProfile(name, mode) {
+      name = (name || "").trim();
+      if (!name) return { ok:false, msg:"Profile name is required." };
+
+      const profiles = loadProfiles();
+      if (profiles[name]) return { ok:false, msg:"Profile already exists." };
+
+      profiles[name] = { mode, datasetJSON: null, createdAt: Date.now() };
+      saveProfiles(profiles);
+      return { ok:true };
     }
 
-    typeCardRecord.addEventListener("click", () => setTypeCards("record"));
-    typeCardDemo.addEventListener("click", () => setTypeCards("demo"));
-    typeCardRecord.addEventListener("keydown", (e) => { if (e.key === "Enter") setTypeCards("record"); });
-    typeCardDemo.addEventListener("keydown", (e) => { if (e.key === "Enter") setTypeCards("demo"); });
+    function deleteProfile(name) {
+      const profiles = loadProfiles();
+      if (!profiles[name]) return;
+      delete profiles[name];
+      saveProfiles(profiles);
 
-    modalCancel.addEventListener("click", closeProfileModal);
-    modalOverlay.addEventListener("click", (e) => { if (e.target === modalOverlay) closeProfileModal; });
-
-    modalSave.addEventListener("click", () => {
-      const name = (modalNameInput.value || "").trim().slice(0, 40);
-      if (!name) { alert("Please enter a profile name."); return; }
-
-      if (modalMode === "create") {
-        const id = randId();
-        profiles.push({ id, name, type: modalSelectedType, createdAt: nowISO(), focusDefault: modalSelectedType === "record" });
-        saveProfilesIndex(profiles);
-
-        activeProfileId = id;
-        setActiveProfileId(id);
-
-        // Clear in-memory and persist empty profile state
-        knn.clearAllClasses();
-        transcriptEl.value = "";
-        scheduleAutosave(true);
-
-        rebuildProfileSelect();
-        setProfileBadges();
-        applyProfileTypeUI();
-        loadProfileIntoMemory(activeProfileId);
-      } else {
-        const p = getProfileById(activeProfileId);
-        if (!p) return;
-        p.name = name;
-        p.type = modalSelectedType;
-        p.focusDefault = (modalSelectedType === "record");
-        saveProfilesIndex(profiles);
-
-        // stop recorder
-        recIsRunning = false;
-        recStartBtn.disabled = false;
-        recStopBtn.disabled = true;
-        recStartBtnF.disabled = false;
-        recStopBtnF.disabled = true;
-
-        rebuildProfileSelect();
-        setProfileBadges();
-        applyProfileTypeUI();
-        scheduleAutosave(true);
+      // if deleted active, switch to any remaining
+      const names = Object.keys(profiles);
+      if (getActiveProfileName() === name) {
+        localStorage.setItem(LS_ACTIVE, names[0] || "");
       }
+      refreshProfileUI();
+      const newActive = getActiveProfileName();
+      if (newActive) setActiveProfile(newActive);
+    }
 
-      closeProfileModal();
-    });
-
-    // =========================
-    // Vectors
-    // =========================
+    // -----------------------------
+    // Vector normalization
+    // -----------------------------
     function landmarksToNormalizedVector(lm) {
       const base = lm[0];
       const dx1 = lm[5].x - base.x, dy1 = lm[5].y - base.y, dz1 = (lm[5].z ?? 0) - (base.z ?? 0);
@@ -750,25 +672,51 @@
       return v;
     }
 
-    function vecDelta(a, b) {
-      if (!a || !b || a.length !== b.length) return Infinity;
-      let s = 0;
-      for (let i = 0; i < a.length; i++) {
-        const d = a[i] - b[i];
-        s += d * d;
+    // -----------------------------
+    // Dominant hand selection (largest bbox)
+    // -----------------------------
+    function bboxAreaFromLandmarks(lm) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of lm) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
       }
-      return Math.sqrt(s / a.length);
+      const w = Math.max(0, maxX - minX);
+      const h = Math.max(0, maxY - minY);
+      return w * h;
+    }
+    function pickDominantHandIndex(result) {
+      const lms = result.landmarks || [];
+      if (lms.length === 0) return -1;
+      if (lms.length === 1) return 0;
+      let bestIdx = 0, bestArea = -1;
+      for (let i = 0; i < lms.length; i++) {
+        const area = bboxAreaFromLandmarks(lms[i]);
+        if (area > bestArea) { bestArea = area; bestIdx = i; }
+      }
+      return bestIdx;
+    }
+    function handednessLabel(result, idx) {
+      try {
+        const h = result.handedness?.[idx]?.[0];
+        if (!h) return null;
+        return `${h.categoryName} (${(h.score ?? 0).toFixed(2)})`;
+      } catch { return null; }
     }
 
-    // =========================
-    // Stabilization
-    // =========================
+    // -----------------------------
+    // Demo stabilization
+    // -----------------------------
+    let predHistory = [];
+    let lastEmitted = { label: null, t: 0 };
+
     function addPrediction(label, conf) {
       const windowN = Math.max(3, Math.min(30, parseInt(stabWindowEl.value || "12", 10)));
       predHistory.push({ label, conf, t: Date.now() });
       if (predHistory.length > windowN) predHistory.shift();
     }
-
     function getStablePrediction() {
       if (predHistory.length === 0) return { label: null, conf: 0, ratio: 0 };
 
@@ -794,7 +742,6 @@
           bestLabel = label; bestCount = c; bestAvgConf = avg;
         }
       }
-
       const ratio = bestCount / considered;
       if (ratio >= majority) return { label: bestLabel, conf: bestAvgConf, ratio };
       return { label: null, conf: bestAvgConf, ratio };
@@ -802,54 +749,157 @@
 
     function emitIfStable(label) {
       if (!label) return;
-      if (!LABELS.includes(label)) return;
-
-      const p = getProfileById(activeProfileId);
-      const isRecord = p?.type === "record";
-      if (isRecord) return; // keep Recording clean
-
       const now = Date.now();
       const debounceMs = Math.max(150, Math.min(4000, parseInt(emitDebounceEl.value || "900", 10)));
       if (lastEmitted.label === label && (now - lastEmitted.t) < (debounceMs + 250)) return;
       if ((now - lastEmitted.t) < debounceMs) return;
 
-      transcriptEl.value += label;
+      if (label === "BACKSPACE") transcriptEl.value = transcriptEl.value.slice(0, -1);
+      else if (label === "SPACE") transcriptEl.value += " ";
+      else transcriptEl.value += label;
+
       lastEmitted = { label, t: now };
-      scheduleAutosave();
     }
 
-    // =========================
-    // Dataset JSON + meta
-    // =========================
-    function datasetToJSON(dataset) {
-      const out = {};
-      for (const label of Object.keys(dataset)) {
-        const t = dataset[label];
-        out[label] = { shape: t.shape, data: Array.from(t.dataSync()) };
+    // -----------------------------
+    // MediaPipe init
+    // -----------------------------
+    async function initHandLandmarker() {
+      setStatus("Loading model…");
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+      );
+      handLandmarker = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+        },
+        runningMode: "VIDEO",
+        numHands: 2
+      });
+      drawingUtils = new DrawingUtils(ctx);
+    }
+
+    // -----------------------------
+    // Drawing
+    // -----------------------------
+    function ensureCanvasSizeFor(video, canvas) {
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 480;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w; canvas.height = h;
       }
-      return out;
     }
 
-    function jsonToDataset(obj) {
-      const ds = {};
-      for (const label of Object.keys(obj)) {
-        const { shape, data } = obj[label];
-        ds[label] = tf.tensor(data, shape);
+    function drawHandsOn(video, canvas, context, result) {
+      ensureCanvasSizeFor(video, canvas);
+      context.save();
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const lms = result.landmarks || [];
+      if (lms.length > 0) {
+        const du = new DrawingUtils(context);
+        for (const lm of lms) {
+          du.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { lineWidth: 3 });
+          du.drawLandmarks(lm, { lineWidth: 2 });
+        }
       }
-      return ds;
+      context.restore();
     }
 
-    function wrapExport(meta, datasetObj) {
-      return { schema: "asl_knn_dataset_v2", meta, data: datasetObj };
+    // -----------------------------
+    // Predict (shared)
+    // -----------------------------
+    async function knnPredict(lm) {
+      if (knn.getNumExamples() <= 0) return { label: null, conf: 0 };
+
+      const vec = landmarksToNormalizedVector(lm);
+      const tensor = tf.tensor(vec, [1, vec.length]);
+      const pred = await knn.predictClass(tensor, 5);
+      const label = pred.label;
+      const conf = (pred.confidences && pred.confidences[label]) ? pred.confidences[label] : 0;
+      return { label, conf };
     }
 
-    function unwrapImport(anyObj) {
-      if (anyObj && (anyObj.schema === "asl_knn_dataset_v2" || anyObj.schema === "asl_knn_dataset_v1") && anyObj.data) {
-        return { meta: anyObj.meta || null, data: anyObj.data };
+    // -----------------------------
+    // DEMO loop
+    // -----------------------------
+    async function demoStep() {
+      if (!handLandmarker) return;
+      const now = performance.now();
+      const result = handLandmarker.detectForVideo(videoEl, now);
+
+      drawHandsOn(videoEl, canvasEl, ctx, result);
+
+      const lms = result.landmarks || [];
+      if (lms.length === 0) {
+        lastDominantLandmarks = null;
+        predHistory = [];
+        rawLabelEl.textContent = "—";
+        stableLabelEl.textContent = "—";
+        confEl.textContent = "—";
+        handInfoEl.textContent = "—";
+      } else {
+        const idx = pickDominantHandIndex(result);
+        lastDominantLandmarks = lms[idx];
+        handInfoEl.textContent = handednessLabel(result, idx) || `#${idx}`;
+
+        const pred = await knnPredict(lastDominantLandmarks);
+        if (!pred.label) {
+          rawLabelEl.textContent = "NO SAMPLES";
+          stableLabelEl.textContent = "Train first";
+          confEl.textContent = "—";
+        } else {
+          rawLabelEl.textContent = pred.label;
+          confEl.textContent = pred.conf.toFixed(2);
+          addPrediction(pred.label, pred.conf);
+          const stable = getStablePrediction();
+          stableLabelEl.textContent = stable.label ? `${stable.label} (ratio ${stable.ratio.toFixed(2)})` : `— (ratio ${stable.ratio.toFixed(2)})`;
+          emitIfStable(stable.label);
+        }
       }
-      return { meta: null, data: anyObj };
+      rafDemo = requestAnimationFrame(demoStep);
     }
 
+    async function demoStart() {
+      if (rafDemo) return;
+      setStatus("Starting…");
+      if (!handLandmarker) await initHandLandmarker();
+
+      streamDemo = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+      videoEl.srcObject = streamDemo;
+      await videoEl.play();
+
+      setStatus("Running");
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+
+      rafDemo = requestAnimationFrame(demoStep);
+    }
+
+    function demoStop() {
+      if (rafDemo) cancelAnimationFrame(rafDemo);
+      rafDemo = null;
+      if (streamDemo) { streamDemo.getTracks().forEach(t => t.stop()); streamDemo = null; }
+      videoEl.srcObject = null;
+
+      setStatus("Idle");
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+
+      predHistory = [];
+      lastEmitted = { label: null, t: 0 };
+      lastDominantLandmarks = null;
+      rawLabelEl.textContent = "—";
+      stableLabelEl.textContent = "—";
+      confEl.textContent = "—";
+      handInfoEl.textContent = "—";
+    }
+
+    // -----------------------------
+    // DEMO training + import/export
+    // -----------------------------
     function downloadJSON(filename, obj) {
       const blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
       const a = document.createElement("a");
@@ -859,763 +909,442 @@
       URL.revokeObjectURL(a.href);
     }
 
-    function buildMeta(extra = {}) {
-      const p = getProfileById(activeProfileId);
-      return {
-        appVersion: APP_VERSION,
-        exportedAt: nowISO(),
-        profileId: activeProfileId,
-        profileName: p?.name || "Unknown",
-        profileType: p?.type || "demo",
-        deviceHint: getDeviceHint(),
-        labels: LABELS,
-        note: "Static letters only (exclude J/Z). One-hand dominant (largest bbox).",
-        ...extra
-      };
-    }
-
-    // Merge helpers
-    function concatTensors(tensors) {
-      if (tensors.length === 0) return null;
-      if (tensors.length === 1) return tensors[0];
-      return tf.concat(tensors, 0);
-    }
-
-    function mergeDatasetObjects(datasetObjs) {
-      const merged = {};
-      const labels = new Set();
-      for (const ds of datasetObjs) for (const k of Object.keys(ds || {})) labels.add(k);
-
-      for (const label of labels) {
-        const tensors = [];
-        for (const ds of datasetObjs) {
-          const entry = ds?.[label];
-          if (!entry) continue;
-          try { tensors.push(tf.tensor(entry.data, entry.shape)); } catch {}
-        }
-        if (tensors.length > 0) {
-          const cat = concatTensors(tensors);
-          merged[label] = { shape: cat.shape, data: Array.from(cat.dataSync()) };
-          tensors.forEach(t => t.dispose && t.dispose());
-          cat.dispose && cat.dispose();
-        }
-      }
-      return merged;
-    }
-
-    // =========================
-    // Dominant hand selection
-    // =========================
-    function bboxAreaFromLandmarks(lm) {
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const p of lm) {
-        if (p.x < minX) minX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y > maxY) maxY = p.y;
-      }
-      const w = Math.max(0, maxX - minX);
-      const h = Math.max(0, maxY - minY);
-      return w * h;
-    }
-
-    function pickDominantHandIndex(result) {
-      const lms = result.landmarks || [];
-      if (lms.length === 0) return -1;
-      if (lms.length === 1) return 0;
-      let bestIdx = 0, bestArea = -1;
-      for (let i = 0; i < lms.length; i++) {
-        const area = bboxAreaFromLandmarks(lms[i]);
-        if (area > bestArea) { bestArea = area; bestIdx = i; }
-      }
-      return bestIdx;
-    }
-
-    function handednessLabel(result, idx) {
-      try {
-        const h = result.handedness?.[idx]?.[0];
-        if (!h) return null;
-        return `${h.categoryName} (${(h.score ?? 0).toFixed(2)})`;
-      } catch { return null; }
-    }
-
-    // =========================
-    // MediaPipe init
-    // =========================
-    async function initHandLandmarker() {
-      setStatus("Loading model…");
-      const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-      handLandmarker = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
-        },
-        runningMode: "VIDEO",
-        numHands: 2
-      });
-      drawingUtils = new DrawingUtils(ctx);
-    }
-
-    // =========================
-    // Rendering + prediction
-    // =========================
-    function ensureCanvasSize() {
-      const w = videoEl.videoWidth || 640;
-      const h = videoEl.videoHeight || 480;
-      if (canvasEl.width !== w || canvasEl.height !== h) {
-        canvasEl.width = w;
-        canvasEl.height = h;
-      }
-    }
-
-    function drawHands(result) {
-      ensureCanvasSize();
-      ctx.save();
-      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-      ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-
-      const lms = result.landmarks || [];
-      if (lms.length > 0) {
-        for (const lm of lms) {
-          drawingUtils.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { lineWidth: 3 });
-          drawingUtils.drawLandmarks(lm, { lineWidth: 2 });
-        }
-      }
-      ctx.restore();
-    }
-
-    async function predictFromLandmarks(lm) {
-      if (knn.getNumExamples() <= 0) {
-        rawLabelEl.textContent = "NO SAMPLES";
-        stableLabelEl.textContent = "Import/train first";
-        confEl.textContent = "—";
-        return;
-      }
-
-      const vec = landmarksToNormalizedVector(lm);
-      const tensor = tf.tensor(vec, [1, vec.length]);
-
-      const pred = await knn.predictClass(tensor, 5);
-      const label = pred.label;
-      const conf = (pred.confidences && pred.confidences[label]) ? pred.confidences[label] : 0;
-
-      rawLabelEl.textContent = label;
-      confEl.textContent = conf.toFixed(2);
-
-      addPrediction(label, conf);
-
-      const stable = getStablePrediction();
-      stableLabelEl.textContent = stable.label ? `${stable.label} (ratio ${stable.ratio.toFixed(2)})` : `— (ratio ${stable.ratio.toFixed(2)})`;
-
-      emitIfStable(stable.label);
-      tensor.dispose && tensor.dispose();
-    }
-
-    // =========================
-    // Recorder helpers
-    // =========================
-    function setQualityPill(el, state, text) {
-      el.textContent = text;
-      el.className = "pill";
-      if (state === "ok") el.classList.add("ok");
-      if (state === "bad") el.classList.add("bad");
-    }
-
-    function getRecTargetLabel() { return LABELS[recLabelIndex] || LABELS[0]; }
-
-    function getDatasetCountsFromKnn() {
-      const ds = knn.getClassifierDataset();
-      const counts = {};
-      for (const label of LABELS) counts[label] = 0;
-      for (const label of Object.keys(ds)) {
-        try {
-          const t = ds[label];
-          const n = Array.isArray(t.shape) ? (t.shape[0] || 0) : 0;
-          counts[label] = n;
-        } catch {}
-      }
-      return counts;
-    }
-
-    function refreshCountsTable() {
-      const counts = getDatasetCountsFromKnn();
-      countsTbody.innerHTML = "";
-      for (const label of LABELS) {
-        const n = counts[label] || 0;
-        const tr = document.createElement("tr");
-        const tdL = document.createElement("td");
-        const tdN = document.createElement("td");
-        const tdS = document.createElement("td");
-
-        tdL.textContent = label;
-        tdN.textContent = String(n);
-
-        if (n >= REC_GOAL_PER_LABEL) tdS.innerHTML = `<span class="pill ok">OK</span>`;
-        else if (n === 0) tdS.innerHTML = `<span class="pill bad">empty</span>`;
-        else tdS.innerHTML = `<span class="pill">in progress</span>`;
-
-        tr.appendChild(tdL);
-        tr.appendChild(tdN);
-        tr.appendChild(tdS);
-        countsTbody.appendChild(tr);
-      }
-    }
-
-    function updateRecorderHeader() {
-      const label = getRecTargetLabel();
-      const counts = getDatasetCountsFromKnn();
-      const n = counts[label] || 0;
-
-      // advanced
-      recTargetEl.textContent = label;
-      recProgressEl.textContent = `${n}/${REC_GOAL_PER_LABEL}`;
-
-      // focus
-      focusTargetEl.textContent = label;
-      focusProgressEl.textContent = `${n}/${REC_GOAL_PER_LABEL}`;
-      const pct = Math.max(0, Math.min(100, (n / REC_GOAL_PER_LABEL) * 100));
-      focusBarEl.style.width = `${pct}%`;
-
-      refreshCountsTable();
-      sampleCountEl.textContent = knn.getNumExamples();
-    }
-
-    function clearLabelSamples(label) {
-      const ds = knn.getClassifierDataset();
-      const newDs = {};
-      for (const k of Object.keys(ds)) if (k !== label) newDs[k] = ds[k];
-      knn.setClassifierDataset(newDs);
-
-      predHistory = [];
-      lastEmitted = { label: null, t: 0 };
-      scheduleAutosave();
-      updateRecorderHeader();
-    }
-
-    function maybeAutoAdvanceIfDone() {
-      const label = getRecTargetLabel();
-      const counts = getDatasetCountsFromKnn();
-      const n = counts[label] || 0;
-      if (n >= REC_GOAL_PER_LABEL && recLabelIndex < LABELS.length - 1) {
-        recLabelIndex++;
-        updateRecorderHeader();
-        recStableSince = 0;
-        recPrevVec = null;
-      }
-    }
-
-    function applyPreset(presetKey) {
-      const p = PRESETS[presetKey] || PRESETS.normal;
-      recHoldMsEl.value = String(p.holdMs);
-      recCooldownMsEl.value = String(p.cooldownMs);
-      recMinAreaEl.value = String(p.minArea);
-      recMaxAreaEl.value = String(p.maxArea);
-      recMotionThreshEl.value = String(p.motionThresh);
-      recPresetEl.value = presetKey;
-      scheduleAutosave();
-    }
-
-    recPresetEl.addEventListener("change", () => applyPreset(recPresetEl.value));
-
-    // =========================
-    // Auto-capture and manual capture
-    // =========================
-    function canCaptureNow() {
-      if (!lastDominantLandmarks) return { ok:false, reason:"No hand detected" };
-
-      const bboxArea = bboxAreaFromLandmarks(lastDominantLandmarks);
-      const minArea = Math.max(0.02, Math.min(0.5, parseFloat(recMinAreaEl.value || "0.08")));
-      const maxArea = Math.max(minArea + 0.01, Math.min(0.8, parseFloat(recMaxAreaEl.value || "0.35")));
-      const sizeOk = bboxArea >= minArea && bboxArea <= maxArea;
-      if (!sizeOk) return { ok:false, reason:"Hand size out of range" };
-
-      return { ok:true, reason:"OK" };
-    }
-
-    function captureOneSampleNow() {
-      const p = getProfileById(activeProfileId);
-      if (p?.type !== "record") { alert("Switch to a Recording profile to collect samples."); return; }
-      if (!rafId) { alert("Start the camera first."); return; }
-
-      const check = canCaptureNow();
-      if (!check.ok) { alert("Cannot capture now: " + check.reason); return; }
-
-      const vec = landmarksToNormalizedVector(lastDominantLandmarks);
-      const tensor = tf.tensor(vec, [1, vec.length]);
-      knn.addExample(tensor, getRecTargetLabel());
-      tensor.dispose && tensor.dispose();
-
-      updateRecorderHeader();
-      scheduleAutosave();
-      maybeAutoAdvanceIfDone();
-    }
-
-    recManualBtn.addEventListener("click", captureOneSampleNow);
-    recManualBtnF.addEventListener("click", captureOneSampleNow);
-
-    // =========================
-    // Main loop
-    // =========================
-    async function step() {
-      if (!handLandmarker) return;
-
-      const now = performance.now();
-      const result = handLandmarker.detectForVideo(videoEl, now);
-
-      drawHands(result);
-
-      const lms = result.landmarks || [];
-      if (lms.length === 0) {
-        lastDominantLandmarks = null;
-        lastDominantHandedness = null;
-        predHistory = [];
-        rawLabelEl.textContent = "—";
-        stableLabelEl.textContent = "—";
-        confEl.textContent = "—";
-        handInfoEl.textContent = "—";
-
-        setQualityPill(qHandEl, "bad", "Hand: not detected");
-        setQualityPill(qSizeEl, "bad", "Size: —");
-        setQualityPill(qMotionEl, "bad", "Motion: —");
-
-        setQualityPill(qHandF, "bad", "Hand: not detected");
-        setQualityPill(qSizeF, "bad", "Size: —");
-        setQualityPill(qMotionF, "bad", "Motion: —");
-
-        recStableSince = 0;
-        recPrevVec = null;
-      } else {
-        const idx = pickDominantHandIndex(result);
-        lastDominantLandmarks = lms[idx];
-        lastDominantHandedness = handednessLabel(result, idx);
-        handInfoEl.textContent = lastDominantHandedness || `#${idx}`;
-
-        await predictFromLandmarks(lastDominantLandmarks);
-
-        const p = getProfileById(activeProfileId);
-        const isRecord = p?.type === "record";
-
-        if (isRecord) {
-          const bboxArea = bboxAreaFromLandmarks(lastDominantLandmarks);
-          const minArea = Math.max(0.02, Math.min(0.5, parseFloat(recMinAreaEl.value || "0.08")));
-          const maxArea = Math.max(minArea + 0.01, Math.min(0.8, parseFloat(recMaxAreaEl.value || "0.35")));
-          const motionThresh = Math.max(0.010, Math.min(0.120, parseFloat(recMotionThreshEl.value || "0.035")));
-
-          const vec = landmarksToNormalizedVector(lastDominantLandmarks);
-          const motion = recPrevVec ? vecDelta(vec, recPrevVec) : Infinity;
-          recPrevVec = vec;
-
-          const sizeOk = bboxArea >= minArea && bboxArea <= maxArea;
-          const motionOk = motion !== Infinity && motion < motionThresh;
-
-          setQualityPill(qHandEl, "ok", "Hand: detected");
-          setQualityPill(qSizeEl, sizeOk ? "ok" : "bad", sizeOk ? `Size: ok (${bboxArea.toFixed(3)})` : `Size: adjust (${bboxArea.toFixed(3)})`);
-          setQualityPill(qMotionEl, motionOk ? "ok" : "bad", `Motion: ${motionOk ? "stable" : "moving"} (${motion === Infinity ? "—" : motion.toFixed(4)})`);
-
-          setQualityPill(qHandF, "ok", "Hand: detected");
-          setQualityPill(qSizeF, sizeOk ? "ok" : "bad", sizeOk ? `Size: ok (${bboxArea.toFixed(3)})` : `Size: adjust (${bboxArea.toFixed(3)})`);
-          setQualityPill(qMotionF, motionOk ? "ok" : "bad", `Motion: ${motionOk ? "stable" : "moving"} (${motion === Infinity ? "—" : motion.toFixed(4)})`);
-
-          if (recIsRunning) {
-            const holdMs = Math.max(200, Math.min(1200, parseInt(recHoldMsEl.value || "450", 10)));
-            const cooldownMs = Math.max(150, Math.min(2000, parseInt(recCooldownMsEl.value || "300", 10)));
-            const nowMs = Date.now();
-
-            const stableNow = sizeOk && motionOk;
-            if (stableNow) {
-              if (!recStableSince) recStableSince = nowMs;
-              const held = nowMs - recStableSince;
-
-              if (held >= holdMs && (nowMs - recLastCaptureAt) >= cooldownMs) {
-                const label = getRecTargetLabel();
-                const tensor = tf.tensor(vec, [1, vec.length]);
-                knn.addExample(tensor, label);
-                tensor.dispose && tensor.dispose();
-
-                recLastCaptureAt = nowMs;
-                updateRecorderHeader();
-                scheduleAutosave();
-                maybeAutoAdvanceIfDone();
-              }
-            } else {
-              recStableSince = 0;
-            }
-          }
-        }
-      }
-
-      rafId = requestAnimationFrame(step);
-    }
-
-    // =========================
-    // Camera start/stop
-    // =========================
-    function humanReadableGetUserMediaError(err) {
-      const name = err?.name || "UnknownError";
-      const msg = err?.message || "";
-      if (name === "NotAllowedError" || name === "PermissionDeniedError") return "Camera permission denied. Allow camera access for this site, then refresh.";
-      if (name === "NotFoundError" || name === "DevicesNotFoundError") return "No camera found on this device.";
-      if (name === "NotReadableError" || name === "TrackStartError") return "Camera is busy or unavailable. Close other apps using the camera and try again.";
-      return `Camera error: ${name}${msg ? " — " + msg : ""}`;
-    }
-
-    async function start() {
-      if (rafId) return;
-
-      setStatus("Starting…");
-      if (!handLandmarker) await initHandLandmarker();
-
-      const primaryConstraints = { video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false };
-      const fallbackConstraints = { video: true, audio: false };
-
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(primaryConstraints);
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-      }
-
-      videoEl.srcObject = stream;
-      videoFocusEl.srcObject = stream;
-
-      await videoEl.play().catch(()=>{});
-      await videoFocusEl.play().catch(()=>{});
-
-      setStatus("Running");
-      startBtn.disabled = true; stopBtn.disabled = false;
-      startBtnF.disabled = true; stopBtnF.disabled = false;
-
-      rafId = requestAnimationFrame(step);
-    }
-
-    function stop() {
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = null;
-
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-      }
-
-      videoEl.srcObject = null;
-      videoFocusEl.srcObject = null;
-
-      setStatus("Idle");
-      startBtn.disabled = false; stopBtn.disabled = true;
-      startBtnF.disabled = false; stopBtnF.disabled = true;
-
-      predHistory = [];
-      lastEmitted = { label: null, t: 0 };
-      lastDominantLandmarks = null;
-      lastDominantHandedness = null;
-      rawLabelEl.textContent = "—";
-      stableLabelEl.textContent = "—";
-      confEl.textContent = "—";
-      handInfoEl.textContent = "—";
-
-      recIsRunning = false;
-      recStartBtn.disabled = false; recStopBtn.disabled = true;
-      recStartBtnF.disabled = false; recStopBtnF.disabled = true;
-      recStableSince = 0;
-      recPrevVec = null;
-    }
-
-    async function startClicked() {
-      try { await start(); }
-      catch (err) {
-        console.error(err);
-        setStatus("Camera error");
-        alert("Could not start camera.\n\n" + humanReadableGetUserMediaError(err) + "\n\nTips:\n• Use HTTPS (or localhost)\n• Allow camera permission for this site\n• Refresh and try again");
-      }
-    }
-
-    startBtn.addEventListener("click", startClicked);
-    startBtnF.addEventListener("click", startClicked);
-    stopBtn.addEventListener("click", stop);
-    stopBtnF.addEventListener("click", stop);
-
-    // =========================
-    // Export / Import / Merge
-    // =========================
     exportBtn.addEventListener("click", () => {
-      const ds = knn.getClassifierDataset();
-      const json = datasetToJSON(ds);
-      const p = getProfileById(activeProfileId);
-      const wrapped = wrapExport(buildMeta(), json);
-      const safeName = (p?.name || "profile").replace(/[^a-z0-9_\-]+/gi, "_");
-      downloadJSON(`asl_dataset_${safeName}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.json`, wrapped);
+      persistActiveProfileDataset();
+      const active = getActiveProfileName();
+      const profiles = loadProfiles();
+      const prof = profiles[active];
+      downloadJSON(`${active || "profile"}_knn.json`, {
+        profile: active,
+        mode: prof?.mode || "demo",
+        dataset: prof?.datasetJSON || datasetToJSON(knn.getClassifierDataset()),
+        exportedAt: new Date().toISOString()
+      });
     });
 
     importInput.addEventListener("change", async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      const text = await file.text();
+      const obj = JSON.parse(text);
+
+      // Support both raw dataset JSON and wrapped export
+      const dsObj = obj.dataset ? obj.dataset : obj;
       try {
-        const text = await file.text();
-        const anyObj = JSON.parse(text);
-        const { data } = unwrapImport(anyObj);
-        const ds = jsonToDataset(data);
+        const ds = jsonToDataset(dsObj);
         knn.setClassifierDataset(ds);
         sampleCountEl.textContent = knn.getNumExamples();
-        updateRecorderHeader();
-        scheduleAutosave();
-        alert("Samples imported into current profile.");
+        activeSamplesKpi.textContent = knn.getNumExamples();
+        persistActiveProfileDataset();
+        alert("Imported into active profile.");
       } catch (err) {
         console.error(err);
-        alert("Import failed. Ensure this is a valid dataset JSON.");
-      } finally {
-        importInput.value = "";
+        alert("Import failed. File format not recognized.");
       }
+      importInput.value = "";
     });
 
-    mergeInput.addEventListener("change", async (e) => {
-      const files = Array.from(e.target.files || []);
-      if (files.length < 2) {
-        alert("Select 2 or more JSON files to merge.");
-        mergeInput.value = "";
-        return;
-      }
-      try {
-        const datasetObjs = [];
-        for (const f of files) {
-          const text = await f.text();
-          const anyObj = JSON.parse(text);
-          const { data } = unwrapImport(anyObj);
-          datasetObjs.push(data);
-        }
-        const merged = mergeDatasetObjects(datasetObjs);
-        const wrapped = wrapExport(buildMeta({ mergedAt: nowISO(), mergedFilesCount: files.length }), merged);
-        downloadJSON(`asl_dataset_merged_${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.json`, wrapped);
-        alert("Merged dataset downloaded. Import it into a profile to use.");
-      } catch (err) {
-        console.error(err);
-        alert("Merge failed. Ensure all selected files are valid dataset JSON.");
-      } finally {
-        mergeInput.value = "";
-      }
+    addSampleBtn.addEventListener("click", () => {
+      if (!lastDominantLandmarks) { alert("No hand detected. Show your hand to the camera first."); return; }
+      const label = aslLabelEl.value;
+      const vec = landmarksToNormalizedVector(lastDominantLandmarks);
+      const tensor = tf.tensor(vec, [1, vec.length]);
+      knn.addExample(tensor, label);
+      sampleCountEl.textContent = knn.getNumExamples();
+      activeSamplesKpi.textContent = knn.getNumExamples();
+      persistActiveProfileDataset();
     });
 
-    // =========================
-    // Transcript
-    // =========================
+    clearSamplesBtn.addEventListener("click", () => {
+      if (!confirm("Clear ALL samples for active profile?")) return;
+      knn.clearAllClasses();
+      sampleCountEl.textContent = 0;
+      activeSamplesKpi.textContent = 0;
+      predHistory = [];
+      lastEmitted = { label: null, t: 0 };
+      rawLabelEl.textContent = "—";
+      stableLabelEl.textContent = "—";
+      confEl.textContent = "—";
+      persistActiveProfileDataset();
+      updateRecorderHeader();
+    });
+
     clearTextBtn.addEventListener("click", () => {
       transcriptEl.value = "";
       predHistory = [];
       lastEmitted = { label: null, t: 0 };
-      scheduleAutosave();
     });
 
-    // =========================
-    // Recorder controls (advanced + focus)
-    // =========================
-    function startAutoCapture() {
-      const p = getProfileById(activeProfileId);
-      if (p?.type !== "record") { alert("Switch to a Recording profile to collect samples."); return; }
-      if (!rafId) { alert("Start the camera first (click Start)."); return; }
+    startBtn.addEventListener("click", () => demoStart().catch(err => {
+      console.error(err);
+      setStatus("Error");
+      alert("Could not start. Use Chrome/Edge and run via http://localhost:8000 (not file://). Check camera permissions.");
+      demoStop();
+    }));
+    stopBtn.addEventListener("click", demoStop);
 
+    // -----------------------------
+    // Recorder logic (auto-capture)
+    // -----------------------------
+    const LABELS = ["A","B","C","D","E","F","G","H","I","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y"];
+
+    let recLabelIndex = 0;
+    let recIsRunning = false;
+    let recLastSampleAt = 0;
+    let recStableSince = 0;
+    let recPrevVec = null;
+    let pendingAdvance = null; // {fromLabel,toLabel}
+
+    function getRecTargetLabel() { return LABELS[recLabelIndex] || "A"; }
+
+    function getDatasetCountsFromKnn() {
+      const ds = knn.getClassifierDataset();
+      const counts = {};
+      for (const label of Object.keys(ds)) {
+        const t = ds[label];
+        // number of examples = first dimension
+        counts[label] = t.shape?.[0] || 0;
+      }
+      return counts;
+    }
+
+    function updateRecorderHeader() {
+      const label = getRecTargetLabel();
+      recTargetLabelEl.textContent = label;
+
+      const goal = Math.max(5, Math.min(200, parseInt(recGoalEl.value || "30", 10)));
+      const counts = getDatasetCountsFromKnn();
+      const n = counts[label] || 0;
+
+      recProgressEl.textContent = `${n}/${goal}`;
+      recAutoStateEl.textContent = recIsRunning ? "ON" : "OFF";
+    }
+
+    function showAdvanceOverlay(fromLabel, toLabel) {
+      const goal = Math.max(5, Math.min(200, parseInt(recGoalEl.value || "30", 10)));
+      pendingAdvance = { fromLabel, toLabel };
+      advanceMsg.textContent = `${fromLabel} complete (${goal}/${goal}). Next: ${toLabel}. Change the sign, then press Continue.`;
+      advanceOverlay.style.display = "flex";
+    }
+
+    function hideAdvanceOverlay() {
+      advanceOverlay.style.display = "none";
+      pendingAdvance = null;
+    }
+
+    advanceStayBtn.addEventListener("click", () => {
+      hideAdvanceOverlay();
+    });
+
+    advanceContinueBtn.addEventListener("click", () => {
+      if (!pendingAdvance) return;
+      recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
+      recStableSince = 0;
+      recPrevVec = null;
+      hideAdvanceOverlay();
+      updateRecorderHeader();
+
+      // Auto-resume recording
       recIsRunning = true;
       recStartBtn.disabled = true; recStopBtn.disabled = false;
-      recStartBtnF.disabled = true; recStopBtnF.disabled = false;
-
-      recStableSince = 0;
-      recLastCaptureAt = 0;
-      recPrevVec = null;
-    }
-
-    function stopAutoCapture() {
-      recIsRunning = false;
-      recStartBtn.disabled = false; recStopBtn.disabled = true;
-      recStartBtnF.disabled = false; recStopBtnF.disabled = true;
-
-      recStableSince = 0;
-      recPrevVec = null;
-    }
-
-    function prevLabel() {
-      recLabelIndex = Math.max(0, recLabelIndex - 1);
       updateRecorderHeader();
-      recStableSince = 0; recPrevVec = null;
-    }
-
-    function nextLabel() {
-      recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
-      updateRecorderHeader();
-      recStableSince = 0; recPrevVec = null;
-    }
-
-    function resetCurrentLabel() {
-      const p = getProfileById(activeProfileId);
-      if (p?.type !== "record") { alert("Switch to a Recording profile to reset label samples."); return; }
-      const label = getRecTargetLabel();
-      const ok = confirm(`Reset samples for label "${label}" in current profile?`);
-      if (!ok) return;
-      clearLabelSamples(label);
-    }
-
-    recStartBtn.addEventListener("click", startAutoCapture);
-    recStopBtn.addEventListener("click", stopAutoCapture);
-    recPrevBtn.addEventListener("click", prevLabel);
-    recNextBtn.addEventListener("click", nextLabel);
-    recResetLabelBtn.addEventListener("click", resetCurrentLabel);
-
-    recStartBtnF.addEventListener("click", startAutoCapture);
-    recStopBtnF.addEventListener("click", stopAutoCapture);
-    recPrevBtnF.addEventListener("click", prevLabel);
-    recNextBtnF.addEventListener("click", nextLabel);
-    recResetLabelBtnF.addEventListener("click", resetCurrentLabel);
-
-    // Focus toggles
-    focusToggleBtn.addEventListener("click", () => setFocusOn(false));
-    focusAdvancedBtn.addEventListener("click", () => setFocusOn(false));
-
-    // If profile is recording, re-enter focus quickly
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && bodyEl.classList.contains("focusOn")) setFocusOn(false);
     });
 
-    // =========================
-    // Autosave per profile
-    // =========================
-    function scheduleAutosave(immediate = false) {
-      if (immediate) { persistCurrentProfile(); return; }
-      if (autosaveTimer) return;
-      autosaveTimer = setTimeout(() => {
-        autosaveTimer = null;
-        persistCurrentProfile();
-      }, 600);
-    }
+    function maybeAutoAdvanceIfDone() {
+      const label = getRecTargetLabel();
+      const goal = Math.max(5, Math.min(200, parseInt(recGoalEl.value || "30", 10)));
+      const counts = getDatasetCountsFromKnn();
+      const n = counts[label] || 0;
 
-    function persistCurrentProfile() {
-      try {
-        const ds = knn.getClassifierDataset();
-        const json = datasetToJSON(ds);
-        const p = getProfileById(activeProfileId);
-
-        const payload = {
-          schema: "asl_profile_state_v3",
-          savedAt: nowISO(),
-          profileId: activeProfileId,
-          profileName: p?.name || "Unknown",
-          profileType: p?.type || "demo",
-          appVersion: APP_VERSION,
-          transcript: transcriptEl.value || "",
-          dataset: json,
-          recorder: {
-            recLabelIndex,
-            preset: recPresetEl.value || "normal",
-            holdMs: parseInt(recHoldMsEl.value || "450", 10),
-            cooldownMs: parseInt(recCooldownMsEl.value || "300", 10),
-            minArea: parseFloat(recMinAreaEl.value || "0.08"),
-            maxArea: parseFloat(recMaxAreaEl.value || "0.35"),
-            motionThresh: parseFloat(recMotionThreshEl.value || "0.035")
-          }
-        };
-        saveProfileData(activeProfileId, payload);
-      } catch (err) {
-        console.error("Autosave failed:", err);
+      if (n >= goal && recLabelIndex < LABELS.length - 1) {
+        // STOP & CONFIRM
+        if (recIsRunning) {
+          recIsRunning = false;
+          recStartBtn.disabled = false; recStopBtn.disabled = true;
+          updateRecorderHeader();
+        }
+        const nextLabel = LABELS[recLabelIndex + 1];
+        showAdvanceOverlay(label, nextLabel);
       }
     }
 
-    function loadProfileIntoMemory(profileId) {
-      knn.clearAllClasses();
-      transcriptEl.value = "";
-      predHistory = [];
-      lastEmitted = { label: null, t: 0 };
+    function addRecorderSample(label, lm) {
+      const vec = landmarksToNormalizedVector(lm);
+      const tensor = tf.tensor(vec, [1, vec.length]);
+      knn.addExample(tensor, label);
+      sampleCountEl.textContent = knn.getNumExamples();
+      activeSamplesKpi.textContent = knn.getNumExamples();
+      persistActiveProfileDataset();
+      updateRecorderHeader();
+    }
 
-      const payload = loadProfileData(profileId);
-      if (payload?.dataset) {
-        try {
-          const ds = jsonToDataset(payload.dataset);
-          knn.setClassifierDataset(ds);
-        } catch (err) {
-          console.error("Failed to load saved dataset:", err);
+    function resetCurrentLetterSamples() {
+      const label = getRecTargetLabel();
+      const ds = knn.getClassifierDataset();
+      if (!ds[label]) return;
+      const newDS = {};
+      for (const k of Object.keys(ds)) {
+        if (k !== label) newDS[k] = ds[k];
+      }
+      knn.clearAllClasses();
+      knn.setClassifierDataset(newDS);
+      persistActiveProfileDataset();
+      updateRecorderHeader();
+      sampleCountEl.textContent = knn.getNumExamples();
+      activeSamplesKpi.textContent = knn.getNumExamples();
+    }
+
+    // Recorder step:
+    // - predict label+conf
+    // - if label==target && conf>=minConf held for holdMs, then add sample
+    async function recorderStep() {
+      if (!handLandmarker) return;
+      const now = performance.now();
+      const result = handLandmarker.detectForVideo(videoRec, now);
+      drawHandsOn(videoRec, canvasRec, ctxRec, result);
+
+      const lms = result.landmarks || [];
+      if (lms.length === 0) {
+        lastRecDominantLandmarks = null;
+        recRawLabelEl.textContent = "—";
+        recConfEl.textContent = "—";
+        recStableSince = 0;
+        recPrevVec = null;
+        rafRec = requestAnimationFrame(recorderStep);
+        return;
+      }
+
+      const idx = pickDominantHandIndex(result);
+      lastRecDominantLandmarks = lms[idx];
+
+      const pred = await knnPredict(lastRecDominantLandmarks);
+      const label = pred.label || "NO SAMPLES";
+      const conf = pred.conf || 0;
+
+      recRawLabelEl.textContent = label;
+      recConfEl.textContent = pred.label ? conf.toFixed(2) : "—";
+
+      if (recIsRunning && pred.label) {
+        const target = getRecTargetLabel();
+        const minC = Math.max(0, Math.min(1, parseFloat(recMinConfEl.value || "0.70")));
+        const holdMs = Math.max(100, Math.min(3000, parseInt(recHoldMsEl.value || "450", 10)));
+        const cooldownMs = Math.max(50, Math.min(3000, parseInt(recCooldownMsEl.value || "220", 10)));
+        const nowMs = Date.now();
+
+        // Use vector stability (optional) to reduce jitter duplicates
+        const vec = landmarksToNormalizedVector(lastRecDominantLandmarks);
+        let vecDelta = 0;
+        if (recPrevVec) {
+          for (let i = 0; i < vec.length; i++) {
+            const d = vec[i] - recPrevVec[i];
+            vecDelta += d*d;
+          }
+          vecDelta = Math.sqrt(vecDelta);
+        }
+        recPrevVec = vec;
+
+        const isGood = (label === target) && (conf >= minC);
+
+        if (!isGood) {
+          recStableSince = 0;
+        } else {
+          if (!recStableSince) recStableSince = nowMs;
+          const held = nowMs - recStableSince;
+
+          // sample only if held stable enough and cooldown passed
+          if (held >= holdMs && (nowMs - recLastSampleAt) >= cooldownMs) {
+            addRecorderSample(target, lastRecDominantLandmarks);
+            recLastSampleAt = nowMs;
+            recStableSince = 0; // require re-hold for next sample
+            maybeAutoAdvanceIfDone();
+          }
         }
       }
-      if (payload?.transcript) transcriptEl.value = payload.transcript;
 
-      // Restore recorder settings if present
-      const r = payload?.recorder;
-      if (r) {
-        recLabelIndex = Math.max(0, Math.min(LABELS.length - 1, parseInt(r.recLabelIndex ?? 0, 10)));
-        recPresetEl.value = r.preset || "normal";
-        recHoldMsEl.value = String(r.holdMs ?? 450);
-        recCooldownMsEl.value = String(r.cooldownMs ?? 300);
-        recMinAreaEl.value = String(r.minArea ?? 0.08);
-        recMaxAreaEl.value = String(r.maxArea ?? 0.35);
-        recMotionThreshEl.value = String(r.motionThresh ?? 0.035);
-      } else {
-        // default to normal
-        applyPreset("normal");
+      rafRec = requestAnimationFrame(recorderStep);
+    }
+
+    async function recorderStart() {
+      if (rafRec) return;
+      const active = getActiveProfileName();
+      const profiles = loadProfiles();
+      if (profiles[active]?.mode !== "recording") {
+        alert("Active profile is not in Recording mode. Switch profile or change mode in Profiles.");
+        return;
       }
 
-      sampleCountEl.textContent = knn.getNumExamples();
+      setStatus("Starting…");
+      if (!handLandmarker) await initHandLandmarker();
+
+      streamRec = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+      videoRec.srcObject = streamRec;
+      await videoRec.play();
+
+      recIsRunning = true;
+      recStartBtn.disabled = true;
+      recStopBtn.disabled = false;
       updateRecorderHeader();
+
+      setStatus("Running");
+      rafRec = requestAnimationFrame(recorderStep);
     }
 
-    // =========================
-    // Profile CRUD
-    // =========================
-    newProfileBtn.addEventListener("click", () => openProfileModal("create"));
-    editProfileBtn.addEventListener("click", () => openProfileModal("edit"));
-
-    deleteProfileBtn.addEventListener("click", () => {
-      if (profiles.length <= 1) { alert("You must keep at least one profile."); return; }
-      const p = getProfileById(activeProfileId);
-      const ok = confirm(`Delete profile "${p?.name || "Unknown"}" from this device? This cannot be undone.`);
-      if (!ok) return;
-
+    function recorderStop() {
       recIsRunning = false;
-      stopAutoCapture();
+      if (rafRec) cancelAnimationFrame(rafRec);
+      rafRec = null;
+      if (streamRec) { streamRec.getTracks().forEach(t => t.stop()); streamRec = null; }
+      videoRec.srcObject = null;
 
-      deleteProfileData(activeProfileId);
-      profiles = profiles.filter(x => x.id !== activeProfileId);
-      saveProfilesIndex(profiles);
+      recStartBtn.disabled = false;
+      recStopBtn.disabled = true;
+      recStableSince = 0;
+      recPrevVec = null;
+      recRawLabelEl.textContent = "—";
+      recConfEl.textContent = "—";
+      updateRecorderHeader();
 
-      activeProfileId = profiles[0].id;
-      setActiveProfileId(activeProfileId);
+      setStatus("Idle");
+    }
 
-      rebuildProfileSelect();
-      setProfileBadges();
-      applyProfileTypeUI();
-      loadProfileIntoMemory(activeProfileId);
+    recStartBtn.addEventListener("click", () => recorderStart().catch(err => {
+      console.error(err);
+      setStatus("Error");
+      alert("Could not start Recorder. Run via http://localhost:8000 and allow camera.");
+      recorderStop();
+    }));
+    recStopBtn.addEventListener("click", recorderStop);
+
+    recPrevBtn.addEventListener("click", () => {
+      recLabelIndex = Math.max(0, recLabelIndex - 1);
+      recStableSince = 0; recPrevVec = null;
+      updateRecorderHeader();
+    });
+    recNextBtn.addEventListener("click", () => {
+      recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
+      recStableSince = 0; recPrevVec = null;
+      updateRecorderHeader();
     });
 
-    profileSelect.addEventListener("change", () => {
-      persistCurrentProfile();
-
-      activeProfileId = profileSelect.value;
-      setActiveProfileId(activeProfileId);
-
-      stopAutoCapture();
-
-      setProfileBadges();
-      applyProfileTypeUI();
-      loadProfileIntoMemory(activeProfileId);
+    recResetLetterBtn.addEventListener("click", () => {
+      const label = getRecTargetLabel();
+      if (!confirm(`Reset samples for letter "${label}" in active profile?`)) return;
+      resetCurrentLetterSamples();
     });
 
-    // =========================
+    // Recorder export/import profile JSON
+    recExportBtn.addEventListener("click", () => {
+      persistActiveProfileDataset();
+      const active = getActiveProfileName();
+      const profiles = loadProfiles();
+      const prof = profiles[active];
+      downloadJSON(`${active || "profile"}_knn.json`, {
+        profile: active,
+        mode: prof?.mode || "recording",
+        dataset: prof?.datasetJSON || datasetToJSON(knn.getClassifierDataset()),
+        exportedAt: new Date().toISOString()
+      });
+    });
+
+    recImportInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      const obj = JSON.parse(text);
+      const dsObj = obj.dataset ? obj.dataset : obj;
+
+      try {
+        const ds = jsonToDataset(dsObj);
+        knn.clearAllClasses();
+        knn.setClassifierDataset(ds);
+        persistActiveProfileDataset();
+        sampleCountEl.textContent = knn.getNumExamples();
+        activeSamplesKpi.textContent = knn.getNumExamples();
+        updateRecorderHeader();
+        alert("Imported into active profile.");
+      } catch (err) {
+        console.error(err);
+        alert("Import failed. File format not recognized.");
+      }
+      recImportInput.value = "";
+    });
+
+    // -----------------------------
+    // Profiles UI actions
+    // -----------------------------
+    profileCreateBtn.addEventListener("click", () => {
+      const name = newProfileName.value;
+      const mode = newProfileMode.value;
+      const res = createProfile(name, mode);
+      if (!res.ok) { alert(res.msg); return; }
+      refreshProfileUI();
+      newProfileName.value = "";
+      alert("Profile created.");
+    });
+
+    profileActivateBtn.addEventListener("click", () => {
+      const sel = profileSelect.value;
+      if (!sel) return;
+      setActiveProfile(sel);
+    });
+
+    profileDeleteBtn.addEventListener("click", () => {
+      const sel = profileSelect.value;
+      if (!sel) return;
+      if (!confirm(`Delete profile "${sel}"? This cannot be undone.`)) return;
+      deleteProfile(sel);
+    });
+
+    // Modal open/close
+    switchProfileBtn.addEventListener("click", () => {
+      refreshProfileUI();
+      profileModal.style.display = "flex";
+    });
+
+    profileModalCloseBtn.addEventListener("click", () => {
+      profileModal.style.display = "none";
+    });
+
+    profileModalActivateBtn.addEventListener("click", () => {
+      const sel = profileModalSelect.value;
+      if (!sel) return;
+      profileModal.style.display = "none";
+      setActiveProfile(sel);
+    });
+
+    profileModalCreateBtn.addEventListener("click", () => {
+      const name = profileModalNewName.value;
+      const mode = profileModalNewMode.value;
+      const res = createProfile(name, mode);
+      if (!res.ok) { alert(res.msg); return; }
+      profileModal.style.display = "none";
+      setActiveProfile(name.trim());
+      profileModalNewName.value = "";
+    });
+
+    // -----------------------------
+    // Persist dataset on unload
+    // -----------------------------
+    window.addEventListener("beforeunload", () => {
+      try { persistActiveProfileDataset(); } catch {}
+    });
+
+    // -----------------------------
     // Boot
-    // =========================
-    rebuildProfileSelect();
-    setProfileBadges();
-    applyProfileTypeUI();
-    loadProfileIntoMemory(activeProfileId);
+    // -----------------------------
+    ensureDefaultProfiles();
+    refreshProfileUI();
+    setActiveProfile(getActiveProfileName());
+
+    // Initial UI
+    sampleCountEl.textContent = knn.getNumExamples();
     updateRecorderHeader();
 
-    // Focus should show the camera element correctly; reuse the same stream and mirror
-    // (No extra work required; start() assigns stream to both videos.)
-
-    // If profile is Recording, auto-enter focus (recommended)
-    const p0 = getProfileById(activeProfileId);
-    setFocusOn(p0?.type === "record");
-
-    // Keep recorder preset synced (default normal)
-    if (!recPresetEl.value) recPresetEl.value = "normal";
-    if (!PRESETS[recPresetEl.value]) recPresetEl.value = "normal";
-
-    // If current values not set, apply preset
-    if (!recHoldMsEl.value || !recCooldownMsEl.value || !recMinAreaEl.value || !recMaxAreaEl.value || !recMotionThreshEl.value) {
-      applyPreset(recPresetEl.value);
-    }
-
-    window.addEventListener("beforeunload", () => { try { persistCurrentProfile(); } catch {} });
+    // Default tab based on mode
+    const profs = loadProfiles();
+    const active = getActiveProfileName();
+    const mode = profs[active]?.mode || "demo";
+    setActiveTab(mode === "recording" ? "recorder" : "demo");
   </script>
 </body>
 </html>
