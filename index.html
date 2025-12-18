@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ASL Fingerspelling → English (Local MVP)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; }
+    h1 { margin: 0 0 8px 0; }
+    .muted { color: #555; }
+    .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+    .panel { border: 1px solid #ddd; border-radius: 12px; padding: 12px; }
+    video, canvas { width: 520px; max-width: 100%; border-radius: 12px; background: #000; }
+    .big { font-size: 22px; font-weight: 700; }
+    button, select, input { padding: 10px 12px; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+    button:active { transform: translateY(1px); }
+    textarea { width: 520px; max-width: 100%; height: 120px; border-radius: 12px; padding: 10px; border: 1px solid #ddd; }
+    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid #ddd; background: #fafafa; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+    .hr { height: 1px; background: #eee; margin: 10px 0; }
+    label.small { font-size: 12px; color: #555; display:block; margin: 0 0 6px 0; }
+    .inline { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  </style>
+</head>
+<body>
+  <h1>ASL Fingerspelling → English (Local MVP)</h1>
+  <div class="muted">
+    Windows + Chrome/Edge. Local inference (no cloud). MediaPipe Tasks Vision HandLandmarker + TF.js kNN.
+    MVP targets static ASL letters (A–Y). J/Z are motion letters (next step).
+  </div>
+
+  <div class="row" style="margin-top:12px;">
+    <div class="panel">
+      <div class="muted">Camera</div>
+      <video id="video" playsinline autoplay muted></video>
+
+      <div class="inline" style="margin-top:10px;">
+        <button id="startBtn">Start</button>
+        <button id="stopBtn" disabled>Stop</button>
+        <button id="clearTextBtn">Clear text</button>
+        <span class="badge" id="status">Idle</span>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid">
+        <div>
+          <label class="small">Stabilization window (frames)</label>
+          <input id="stabWindow" type="number" min="3" max="30" value="12" />
+        </div>
+        <div>
+          <label class="small">Required majority (0.50–0.95)</label>
+          <input id="stabMajority" type="number" step="0.05" min="0.5" max="0.95" value="0.7" />
+        </div>
+        <div>
+          <label class="small">Min confidence (0–1)</label>
+          <input id="minConf" type="number" step="0.05" min="0" max="1" value="0.55" />
+        </div>
+        <div>
+          <label class="small">Emit debounce (ms)</label>
+          <input id="emitDebounce" type="number" min="150" max="4000" value="900" />
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="mono">
+        Training tip: for each letter collect 20–40 samples across different angles, distances, and lighting.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="muted">Live View + Output</div>
+      <canvas id="canvas"></canvas>
+
+      <div style="margin-top:10px;">
+        <div class="big">Stable: <span id="stableLabel">—</span></div>
+        <div class="big">Raw: <span id="rawLabel">—</span></div>
+        <div class="muted">Confidence: <span id="conf">—</span> | Hand used: <span id="handInfo">—</span></div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="inline">
+        <label class="small" style="margin:0;">ASL label (train):</label>
+        <select id="aslLabel">
+          <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option>
+          <option value="F">F</option><option value="G">G</option><option value="H">H</option><option value="I">I</option>
+          <option value="K">K</option><option value="L">L</option><option value="M">M</option><option value="N">N</option><option value="O">O</option>
+          <option value="P">P</option><option value="Q">Q</option><option value="R">R</option><option value="S">S</option><option value="T">T</option>
+          <option value="U">U</option><option value="V">V</option><option value="W">W</option><option value="X">X</option><option value="Y">Y</option>
+          <option value="SPACE">SPACE</option>
+          <option value="BACKSPACE">BACKSPACE</option>
+        </select>
+
+        <button id="addSampleBtn">Add sample</button>
+        <button id="clearSamplesBtn">Clear samples</button>
+        <span class="badge">Samples: <span id="sampleCount">0</span></span>
+      </div>
+
+      <div class="inline" style="margin-top:10px;">
+        <button id="exportBtn">Export JSON</button>
+        <label class="badge" style="cursor:pointer;">
+          Import JSON
+          <input id="importInput" type="file" accept="application/json" style="display:none;">
+        </label>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="muted">Transcript</div>
+      <textarea id="transcript" placeholder="Letters will appear here..."></textarea>
+
+      <div class="mono" style="margin-top:8px;">
+        Notes: Detects up to 2 hands; classification uses the largest hand (dominant by bbox area).
+      </div>
+    </div>
+  </div>
+
+  <!-- TF.js + kNN (global) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.2/dist/knn-classifier.min.js"></script>
+
+  <!-- App code (ES module) -->
+  <script type="module">
+    import {
+      FilesetResolver,
+      HandLandmarker,
+      DrawingUtils
+    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+    // -------- UI refs --------
+    const videoEl = document.getElementById("video");
+    const canvasEl = document.getElementById("canvas");
+    const ctx = canvasEl.getContext("2d");
+
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const clearTextBtn = document.getElementById("clearTextBtn");
+    const statusEl = document.getElementById("status");
+
+    const stableLabelEl = document.getElementById("stableLabel");
+    const rawLabelEl = document.getElementById("rawLabel");
+    const confEl = document.getElementById("conf");
+    const handInfoEl = document.getElementById("handInfo");
+
+    const transcriptEl = document.getElementById("transcript");
+
+    const aslLabelEl = document.getElementById("aslLabel");
+    const addSampleBtn = document.getElementById("addSampleBtn");
+    const clearSamplesBtn = document.getElementById("clearSamplesBtn");
+    const sampleCountEl = document.getElementById("sampleCount");
+
+    const exportBtn = document.getElementById("exportBtn");
+    const importInput = document.getElementById("importInput");
+
+    const stabWindowEl = document.getElementById("stabWindow");
+    const stabMajorityEl = document.getElementById("stabMajority");
+    const minConfEl = document.getElementById("minConf");
+    const emitDebounceEl = document.getElementById("emitDebounce");
+
+    function setStatus(s) { statusEl.textContent = s; }
+
+    // -------- kNN classifier --------
+    const knn = knnClassifier.create();
+
+    // -------- MediaPipe Tasks Vision --------
+    let handLandmarker = null;
+    let drawingUtils = null;
+
+    // -------- Runtime state --------
+    let stream = null;
+    let rafId = null;
+    let lastDominantLandmarks = null;
+    let lastDominantHandedness = null;
+
+    // Stabilization history: {label, conf, t}
+    let predHistory = [];
+    let lastEmitted = { label: null, t: 0 };
+
+    // -------- Vector normalization (center + scale + unit length) --------
+    function landmarksToNormalizedVector(lm) {
+      // lm is array of 21 {x,y,z}
+      const base = lm[0]; // wrist
+
+      // scale reference: average of wrist->index MCP (5) and wrist->middle MCP (9)
+      const dx1 = lm[5].x - base.x, dy1 = lm[5].y - base.y, dz1 = (lm[5].z ?? 0) - (base.z ?? 0);
+      const dx2 = lm[9].x - base.x, dy2 = lm[9].y - base.y, dz2 = (lm[9].z ?? 0) - (base.z ?? 0);
+      const s1 = Math.hypot(dx1, dy1, dz1);
+      const s2 = Math.hypot(dx2, dy2, dz2);
+      const scale = Math.max(1e-6, (s1 + s2) / 2);
+
+      const v = [];
+      for (const p of lm) {
+        v.push((p.x - base.x) / scale);
+        v.push((p.y - base.y) / scale);
+        v.push(((p.z ?? 0) - (base.z ?? 0)) / scale);
+      }
+
+      // unit-length normalize full vector
+      let norm = 0;
+      for (const x of v) norm += x * x;
+      norm = Math.sqrt(Math.max(1e-12, norm));
+      for (let i = 0; i < v.length; i++) v[i] /= norm;
+
+      return v;
+    }
+
+    // -------- Stabilization --------
+    function addPrediction(label, conf) {
+      const now = Date.now();
+      const windowN = Math.max(3, Math.min(30, parseInt(stabWindowEl.value || "12", 10)));
+      predHistory.push({ label, conf, t: now });
+      if (predHistory.length > windowN) predHistory.shift();
+    }
+
+    function getStablePrediction() {
+      if (predHistory.length === 0) return { label: null, conf: 0, ratio: 0 };
+
+      const minConf = Math.max(0, Math.min(1, parseFloat(minConfEl.value || "0.55")));
+      const majority = Math.max(0.5, Math.min(0.95, parseFloat(stabMajorityEl.value || "0.7")));
+
+      const counts = new Map();
+      const confSum = new Map();
+      let considered = 0;
+
+      for (const p of predHistory) {
+        if (p.conf < minConf) continue;
+        considered++;
+        counts.set(p.label, (counts.get(p.label) || 0) + 1);
+        confSum.set(p.label, (confSum.get(p.label) || 0) + p.conf);
+      }
+
+      if (considered === 0) return { label: null, conf: 0, ratio: 0 };
+
+      let bestLabel = null;
+      let bestCount = -1;
+      let bestAvgConf = -1;
+
+      for (const [label, c] of counts.entries()) {
+        const avg = (confSum.get(label) || 0) / c;
+        if (c > bestCount || (c === bestCount && avg > bestAvgConf)) {
+          bestLabel = label;
+          bestCount = c;
+          bestAvgConf = avg;
+        }
+      }
+
+      const ratio = bestCount / considered;
+      if (ratio >= majority) return { label: bestLabel, conf: bestAvgConf, ratio };
+      return { label: null, conf: bestAvgConf, ratio };
+    }
+
+    function emitIfStable(label) {
+      if (!label) return;
+
+      const now = Date.now();
+      const debounceMs = Math.max(150, Math.min(4000, parseInt(emitDebounceEl.value || "900", 10)));
+
+      // anti-spam: avoid repeated same label too quickly
+      if (lastEmitted.label === label && (now - lastEmitted.t) < (debounceMs + 250)) return;
+      if ((now - lastEmitted.t) < debounceMs) return;
+
+      if (label === "BACKSPACE") {
+        transcriptEl.value = transcriptEl.value.slice(0, -1);
+      } else if (label === "SPACE") {
+        transcriptEl.value += " ";
+      } else {
+        transcriptEl.value += label;
+      }
+
+      lastEmitted = { label, t: now };
+    }
+
+    // -------- Export/Import JSON (kNN dataset persistence) --------
+    function datasetToJSON(dataset) {
+      const out = {};
+      for (const label of Object.keys(dataset)) {
+        const t = dataset[label]; // Tensor2D
+        out[label] = {
+          shape: t.shape,
+          data: Array.from(t.dataSync())
+        };
+      }
+      return out;
+    }
+
+    function jsonToDataset(obj) {
+      const ds = {};
+      for (const label of Object.keys(obj)) {
+        const { shape, data } = obj[label];
+        ds[label] = tf.tensor(data, shape);
+      }
+      return ds;
+    }
+
+    function downloadJSON(filename, obj) {
+      const blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    exportBtn.addEventListener("click", () => {
+      const ds = knn.getClassifierDataset();
+      const json = datasetToJSON(ds);
+      downloadJSON("asl_knn_samples.json", json);
+    });
+
+    importInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      const obj = JSON.parse(text);
+      const ds = jsonToDataset(obj);
+      knn.setClassifierDataset(ds);
+      sampleCountEl.textContent = knn.getNumExamples();
+      importInput.value = "";
+      alert("Samples imported.");
+    });
+
+    // -------- Dominant hand selection (largest bbox area) --------
+    function bboxAreaFromLandmarks(lm) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of lm) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      }
+      const w = Math.max(0, maxX - minX);
+      const h = Math.max(0, maxY - minY);
+      return w * h;
+    }
+
+    function pickDominantHandIndex(result) {
+      const lms = result.landmarks || [];
+      if (lms.length === 0) return -1;
+      if (lms.length === 1) return 0;
+
+      let bestIdx = 0;
+      let bestArea = -1;
+      for (let i = 0; i < lms.length; i++) {
+        const area = bboxAreaFromLandmarks(lms[i]);
+        if (area > bestArea) {
+          bestArea = area;
+          bestIdx = i;
+        }
+      }
+      return bestIdx;
+    }
+
+    function handednessLabel(result, idx) {
+      // result.handedness is an array of arrays: [{categoryName:"Left"/"Right", score:...}]
+      try {
+        const h = result.handedness?.[idx]?.[0];
+        if (!h) return null;
+        return `${h.categoryName} (${(h.score ?? 0).toFixed(2)})`;
+      } catch {
+        return null;
+      }
+    }
+
+    // -------- MediaPipe init --------
+    async function initHandLandmarker() {
+      setStatus("Loading model…");
+
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+      );
+
+      handLandmarker = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+        },
+        runningMode: "VIDEO",
+        numHands: 2
+      });
+
+      drawingUtils = new DrawingUtils(ctx);
+    }
+
+    // -------- Render + predict --------
+    function ensureCanvasSize() {
+      const w = videoEl.videoWidth || 640;
+      const h = videoEl.videoHeight || 480;
+      if (canvasEl.width !== w || canvasEl.height !== h) {
+        canvasEl.width = w;
+        canvasEl.height = h;
+      }
+    }
+
+    async function predictFromLandmarks(lm) {
+      if (knn.getNumExamples() <= 0) {
+        rawLabelEl.textContent = "NO SAMPLES";
+        stableLabelEl.textContent = "Train first";
+        confEl.textContent = "—";
+        return;
+      }
+
+      const vec = landmarksToNormalizedVector(lm);
+      const tensor = tf.tensor(vec, [1, vec.length]);
+
+      const pred = await knn.predictClass(tensor, 5);
+      const label = pred.label;
+
+      // confidence for chosen label (if available)
+      const conf = (pred.confidences && pred.confidences[label]) ? pred.confidences[label] : 0;
+
+      rawLabelEl.textContent = label;
+      confEl.textContent = conf.toFixed(2);
+
+      addPrediction(label, conf);
+
+      const stable = getStablePrediction();
+      stableLabelEl.textContent = stable.label ? `${stable.label} (ratio ${stable.ratio.toFixed(2)})` : `— (ratio ${stable.ratio.toFixed(2)})`;
+
+      emitIfStable(stable.label);
+    }
+
+    function drawHands(result) {
+      ensureCanvasSize();
+
+      ctx.save();
+      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+      ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+
+      const lms = result.landmarks || [];
+      if (lms.length > 0) {
+        for (const lm of lms) {
+          drawingUtils.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { lineWidth: 3 });
+          drawingUtils.drawLandmarks(lm, { lineWidth: 2 });
+        }
+      }
+
+      ctx.restore();
+    }
+
+    async function step() {
+      if (!handLandmarker) return;
+
+      const now = performance.now();
+      const result = handLandmarker.detectForVideo(videoEl, now);
+
+      drawHands(result);
+
+      const lms = result.landmarks || [];
+      if (lms.length === 0) {
+        lastDominantLandmarks = null;
+        lastDominantHandedness = null;
+        predHistory = [];
+        rawLabelEl.textContent = "—";
+        stableLabelEl.textContent = "—";
+        confEl.textContent = "—";
+        handInfoEl.textContent = "—";
+      } else {
+        const idx = pickDominantHandIndex(result);
+        lastDominantLandmarks = lms[idx];
+        lastDominantHandedness = handednessLabel(result, idx);
+        handInfoEl.textContent = lastDominantHandedness || `#${idx}`;
+
+        await predictFromLandmarks(lastDominantLandmarks);
+      }
+
+      rafId = requestAnimationFrame(step);
+    }
+
+    // -------- Start/Stop camera loop --------
+    async function start() {
+      if (rafId) return;
+
+      setStatus("Starting…");
+
+      if (!handLandmarker) {
+        await initHandLandmarker();
+      }
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 },
+        audio: false
+      });
+
+      videoEl.srcObject = stream;
+      await videoEl.play();
+
+      setStatus("Running");
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+
+      rafId = requestAnimationFrame(step);
+    }
+
+    function stop() {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = null;
+
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+
+      videoEl.srcObject = null;
+
+      setStatus("Idle");
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+
+      // reset transient state
+      predHistory = [];
+      lastEmitted = { label: null, t: 0 };
+      lastDominantLandmarks = null;
+      lastDominantHandedness = null;
+      rawLabelEl.textContent = "—";
+      stableLabelEl.textContent = "—";
+      confEl.textContent = "—";
+      handInfoEl.textContent = "—";
+    }
+
+    // -------- Training controls --------
+    addSampleBtn.addEventListener("click", () => {
+      if (!lastDominantLandmarks) {
+        alert("No hand detected. Show your hand to the camera first.");
+        return;
+      }
+
+      const label = aslLabelEl.value;
+      const vec = landmarksToNormalizedVector(lastDominantLandmarks);
+      const tensor = tf.tensor(vec, [1, vec.length]);
+
+      knn.addExample(tensor, label);
+      sampleCountEl.textContent = knn.getNumExamples();
+    });
+
+    clearSamplesBtn.addEventListener("click", () => {
+      knn.clearAllClasses();
+      sampleCountEl.textContent = 0;
+      predHistory = [];
+      lastEmitted = { label: null, t: 0 };
+      rawLabelEl.textContent = "—";
+      stableLabelEl.textContent = "—";
+      confEl.textContent = "—";
+    });
+
+    clearTextBtn.addEventListener("click", () => {
+      transcriptEl.value = "";
+      predHistory = [];
+      lastEmitted = { label: null, t: 0 };
+    });
+
+    startBtn.addEventListener("click", () => start().catch(err => {
+      console.error(err);
+      setStatus("Error");
+      alert("Could not start. Use Chrome/Edge and run via http://localhost:8000 (not file://). Check camera permissions.");
+      stop();
+    }));
+
+    stopBtn.addEventListener("click", stop);
+
+    // -------- Initial sample count --------
+    sampleCountEl.textContent = knn.getNumExamples();
+  </script>
+</body>
+</html>
