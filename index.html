@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ASL MVP (Profiles + Recorder + Demo + Avatar)</title>
+
   <style>
     :root { --bg:#fff; --fg:#111; --muted:#555; --border:#ddd; --soft:#fafafa; --danger:#b00020; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; color:var(--fg); background:var(--bg); }
@@ -58,45 +59,34 @@
     .kpi { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .kpi .badge { background:#f6f6f6; }
 
-    /* Avatar tab layout */
-    .avatarRow { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
-    .avatarLeft { flex: 1 1 520px; min-width: 320px; }
-    .avatarRight { flex: 1 1 520px; min-width: 320px; }
+    /* Avatar viewport */
+    #avatarViewportWrap { width: 520px; max-width:100%; }
     #avatarViewport {
-      width: 100%;
-      height: 520px;
-      background: #000;
+      width: 520px;
+      height: 420px;
+      max-width: 100%;
       border-radius: 12px;
-      overflow: hidden;
       border: 1px solid var(--border);
-      position: relative;
-    }
-    #avatarCanvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      border-radius: 0;
-    }
-    .hintCorner {
-      position:absolute; left:10px; bottom:10px;
-      background: rgba(0,0,0,0.6);
-      color:#fff; padding:6px 10px; border-radius:999px;
-      font-size:12px;
-      user-select:none;
+      background: #000;
+      display:block;
     }
   </style>
 
-  <!-- THREE.JS (NO ES MODULES) - safer on custom domains / "Not secure" -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- TF.js + kNN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.2/dist/knn-classifier.min.js"></script>
+
+  <!-- ✅ FIX: host Three.js + OrbitControls locally (GitHub Pages friendly) -->
+  <!-- Put these in repo: /vendor/three/three.min.js and /vendor/three/OrbitControls.js -->
+  <script src="./vendor/three/three.min.js"></script>
+  <script src="./vendor/three/OrbitControls.js"></script>
 </head>
 
 <body>
-  <h1>ASL MVP (Local Profiles + Recorder + Demo + Avatar)</h1>
+  <h1>ASL MVP (Local Profiles + Recorder)</h1>
   <div class="muted">
-    Local inference (no cloud). MediaPipe HandLandmarker + TF.js kNN for Demo.
-    Recorder uses <b>stability-based auto-capture</b> and includes <b>test-only</b> preview.
-    Avatar tab is isolated and uses <b>Three.js non-module</b> for maximum compatibility.
+    Local inference (no cloud). MediaPipe HandLandmarker + TF.js kNN.
+    Recorder uses <b>stability-based auto-capture</b>. Recorder has <b>Test-only</b> preview mode.
   </div>
 
   <div class="tabs">
@@ -341,54 +331,54 @@
 
   <!-- AVATAR TAB -->
   <div id="tabAvatar" class="hide">
-    <div class="avatarRow">
-      <div class="panel avatarLeft">
-        <div class="muted"><b>3D Avatar (Two Hands) — Isolated</b></div>
+    <div class="row">
+      <div class="panel">
+        <div class="muted"><b>3D Avatar (Two Hands)</b></div>
         <div class="hr"></div>
-        <div class="badge">This tab does not change Recorder/Demo logic.</div>
+        <div class="mono">
+          This tab is isolated and does not change Demo/Recorder logic.<br>
+          Fix in this version: <b>OrbitControls loaded locally</b> from <code>/vendor/three/</code>.
+        </div>
 
         <div class="hr"></div>
 
         <div class="inline">
           <label class="small" style="margin:0;">Pose preset</label>
           <select id="avatarPreset">
-            <option value="neutral" selected>Neutral</option>
-            <option value="wave">Wave</option>
-            <option value="point">Point</option>
-            <option value="fist">Fist</option>
+            <option value="Neutral" selected>Neutral</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="L">L</option>
+            <option value="V">V</option>
           </select>
+
           <button id="avatarApplyBtn" class="btnPrimary">Apply</button>
           <button id="avatarWaveBtn">Wave</button>
           <button id="avatarResetBtn">Reset</button>
         </div>
 
         <div class="hr"></div>
-
-        <label class="small">Load pose JSON (optional)</label>
-        <label class="badge" style="cursor:pointer; display:inline-block;">
-          Import pose JSON
-          <input id="avatarImportPose" type="file" accept="application/json" style="display:none;">
-        </label>
+        <div class="inline">
+          <label class="badge" style="cursor:pointer;">
+            Import pose JSON
+            <input id="avatarImportPose" type="file" accept="application/json" style="display:none;">
+          </label>
+          <span class="badge">Status: <b id="avatarStatus">Idle</b></span>
+        </div>
 
         <div class="hr"></div>
-
         <div class="mono">
-          Pose JSON format example:<br/>
-          <span class="mono">
-            {"right":{"thumb":[0.1,0.2,0.1],"index":[0.2,0.2,0.2],"middle":[0.2,0.2,0.2],"ring":[0.2,0.2,0.2],"pinky":[0.2,0.2,0.2]},
-             "left":{"thumb":[0.1,0.2,0.1],"index":[0.2,0.2,0.2],"middle":[0.2,0.2,0.2],"ring":[0.2,0.2,0.2],"pinky":[0.2,0.2,0.2]}}
-          </span>
-          <div class="hr"></div>
-          Next step later: map letters/words to a real skeleton/blendshapes, then connect to your dataset.
+          Next step later: map recognized letters to real rig / skeleton. For now it is a simplified visualizer.
         </div>
       </div>
 
-      <div class="panel avatarRight">
+      <div class="panel">
         <div class="muted">Viewport</div>
-        <div id="avatarViewport">
-          <canvas id="avatarCanvas"></canvas>
-          <div class="hintCorner">Drag = rotate • Wheel = zoom</div>
+        <div id="avatarViewportWrap">
+          <canvas id="avatarViewport"></canvas>
         </div>
+        <div class="mono" style="margin-top:8px;">Drag = rotate • Wheel = zoom</div>
       </div>
     </div>
   </div>
@@ -442,14 +432,12 @@
     </div>
   </div>
 
-  <!-- TF.js + kNN -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.2/dist/knn-classifier.min.js"></script>
-
   <script type="module">
     import { FilesetResolver, HandLandmarker, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
+    // -----------------------
     // Tabs
+    // -----------------------
     const tabDemoBtn = document.getElementById("tabDemoBtn");
     const tabRecorderBtn = document.getElementById("tabRecorderBtn");
     const tabProfilesBtn = document.getElementById("tabProfilesBtn");
@@ -470,16 +458,14 @@
       tabRecorder.classList.toggle("hide", name !== "recorder");
       tabProfiles.classList.toggle("hide", name !== "profiles");
       tabAvatar.classList.toggle("hide", name !== "avatar");
-
-      if (name === "avatar") {
-        onEnterAvatarTab();
-      }
     }
-
     tabDemoBtn.addEventListener("click", () => setActiveTab("demo"));
     tabRecorderBtn.addEventListener("click", () => setActiveTab("recorder"));
     tabProfilesBtn.addEventListener("click", () => setActiveTab("profiles"));
-    tabAvatarBtn.addEventListener("click", () => setActiveTab("avatar"));
+    tabAvatarBtn.addEventListener("click", () => {
+      setActiveTab("avatar");
+      onEnterAvatarTab();
+    });
 
     // Top bar
     const activeProfileNameEl = document.getElementById("activeProfileName");
@@ -492,25 +478,20 @@
     const videoEl = document.getElementById("video");
     const canvasEl = document.getElementById("canvas");
     const ctx = canvasEl.getContext("2d");
-
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
     const clearTextBtn = document.getElementById("clearTextBtn");
-
     const stableLabelEl = document.getElementById("stableLabel");
     const rawLabelEl = document.getElementById("rawLabel");
     const confEl = document.getElementById("conf");
     const handInfoEl = document.getElementById("handInfo");
     const transcriptEl = document.getElementById("transcript");
-
     const aslLabelEl = document.getElementById("aslLabel");
     const addSampleBtn = document.getElementById("addSampleBtn");
     const clearSamplesBtn = document.getElementById("clearSamplesBtn");
     const sampleCountEl = document.getElementById("sampleCount");
-
     const exportBtn = document.getElementById("exportBtn");
     const importInput = document.getElementById("importInput");
-
     const stabWindowEl = document.getElementById("stabWindow");
     const stabMajorityEl = document.getElementById("stabMajority");
     const minConfEl = document.getElementById("minConf");
@@ -527,19 +508,15 @@
     const recProgressEl = document.getElementById("recProgress");
     const recAutoStateEl = document.getElementById("recAutoState");
     const recMotionEl = document.getElementById("recMotion");
-
     const recPresetEl = document.getElementById("recPreset");
     const recGoalEl = document.getElementById("recGoal");
     const recHoldMsEl = document.getElementById("recHoldMs");
     const recCooldownMsEl = document.getElementById("recCooldownMs");
     const recStabThreshEl = document.getElementById("recStabThresh");
-
     const recPrevBtn = document.getElementById("recPrevBtn");
     const recNextBtn = document.getElementById("recNextBtn");
-
     const recExportBtn = document.getElementById("recExportBtn");
     const recImportInput = document.getElementById("recImportInput");
-
     const recCaptureEnabledEl = document.getElementById("recCaptureEnabled");
     const recTestRawEl = document.getElementById("recTestRaw");
     const recTestStableEl = document.getElementById("recTestStable");
@@ -569,12 +546,16 @@
     const profileModalCreateBtn = document.getElementById("profileModalCreateBtn");
     const profileModalCloseBtn = document.getElementById("profileModalCloseBtn");
 
-    // Avatar UI
+    // Avatar refs
+    const avatarStatusEl = document.getElementById("avatarStatus");
     const avatarPresetEl = document.getElementById("avatarPreset");
     const avatarApplyBtn = document.getElementById("avatarApplyBtn");
     const avatarWaveBtn = document.getElementById("avatarWaveBtn");
     const avatarResetBtn = document.getElementById("avatarResetBtn");
     const avatarImportPose = document.getElementById("avatarImportPose");
+    const avatarCanvas = document.getElementById("avatarViewport");
+
+    function setAvatarStatus(s) { avatarStatusEl.textContent = s; }
 
     // kNN
     const knn = knnClassifier.create();
@@ -657,7 +638,6 @@
         activeProfileNameEl.textContent = "—";
         activeProfileModeEl.textContent = "—";
       }
-
       activeSamplesKpi.textContent = knn.getNumExamples();
     }
 
@@ -690,7 +670,6 @@
       refreshProfileUI();
       sampleCountEl.textContent = knn.getNumExamples();
       activeSamplesKpi.textContent = knn.getNumExamples();
-
       if (profiles[name].mode === "recording") setActiveTab("recorder");
       else setActiveTab("demo");
 
@@ -759,7 +738,6 @@
       for (const x of v) norm += x * x;
       norm = Math.sqrt(Math.max(1e-12, norm));
       for (let i = 0; i < v.length; i++) v[i] /= norm;
-
       return v;
     }
 
@@ -971,7 +949,7 @@
     startBtn.addEventListener("click", () => demoStart().catch(err => {
       console.error(err);
       setStatus("Error");
-      alert("Could not start. Use Chrome/Edge and run via http(s) URL (not file://). Check camera permissions.");
+      alert("Could not start. Use Chrome/Edge and run via http://localhost:8000 (not file://). Check camera permissions.");
       demoStop();
     }));
     stopBtn.addEventListener("click", demoStop);
@@ -1053,7 +1031,6 @@
     let recPrevVec = null;
     let pendingAdvance = null;
 
-    // Recorder test stabilization (separate, fixed params)
     let recPredHistory = [];
     function recAddPrediction(label, conf) {
       const windowN = 12;
@@ -1181,7 +1158,6 @@
       updateRecorderHeader();
     }
 
-    // Recorder loop: throttle to ~15fps
     let recLastFrameTs = 0;
 
     async function recorderStep(ts) {
@@ -1246,7 +1222,7 @@
         recTestConfEl.textContent = "—";
       }
 
-      // Capture branch
+      // Capture
       if (recIsRunning && lastRecDominantLandmarks && recCaptureEnabledEl.checked) {
         const holdMs = Math.max(100, Math.min(3000, parseInt(recHoldMsEl.value || "450", 10)));
         const cooldownMs = Math.max(50, Math.min(3000, parseInt(recCooldownMsEl.value || "220", 10)));
@@ -1324,7 +1300,7 @@
     recStartBtn.addEventListener("click", () => recorderStart().catch(err => {
       console.error(err);
       setStatus("Error");
-      alert("Could not start Recorder. Run via http(s) URL and allow camera.");
+      alert("Could not start Recorder. Run via http://localhost:8000 and allow camera.");
       recorderStop();
     }));
     recStopBtn.addEventListener("click", recorderStop);
@@ -1425,17 +1401,16 @@
       profileModalNewName.value = "";
     });
 
-    // Advance overlay
+    // Advance overlay actions
     advanceStayBtn.addEventListener("click", () => hideAdvanceOverlay());
     advanceContinueBtn.addEventListener("click", () => {
-      if (!pendingAdvance) { hideAdvanceOverlay(); return; }
+      if (!pendingAdvance) return;
       recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
       recStableSince = 0; recPrevVec = null;
       recPredHistory = [];
       recTestRawEl.textContent = "—";
       recTestStableEl.textContent = "—";
       recTestConfEl.textContent = "—";
-      pendingAdvance = null;
       hideAdvanceOverlay();
       updateRecorderHeader();
       recIsRunning = true;
@@ -1443,226 +1418,210 @@
       updateRecorderHeader();
     });
 
-    // Persist on unload
     window.addEventListener("beforeunload", () => { try { persistActiveProfileDataset(); } catch {} });
 
     // -----------------------
-    // AVATAR (Three.js non-module) — isolated
+    // ✅ AVATAR TAB (Three.js + OrbitControls)
     // -----------------------
-    let avatar3d = { initialized:false, scene:null, camera:null, renderer:null, controls:null, raf:null, rightHand:null, leftHand:null };
+    let avatarInited = false;
+    let avatarRenderer = null, avatarScene = null, avatarCamera = null, avatarControls = null;
+    let avatarLeft = null, avatarRight = null;
+    let avatarRAF = null;
+    let waveT = 0;
+
+    function assertThreeReadyOrThrow() {
+      const THREE = window.THREE;
+      if (!THREE) throw new Error("THREE is missing. Check ./vendor/three/three.min.js path.");
+      if (!THREE.OrbitControls) throw new Error("OrbitControls missing. Check ./vendor/three/OrbitControls.js path.");
+      return THREE;
+    }
 
     function avatarResize() {
-      const host = document.getElementById("avatarViewport");
-      const canvas = document.getElementById("avatarCanvas");
-      if (!host || !canvas || !avatar3d.renderer || !avatar3d.camera) return;
-
-      const rect = host.getBoundingClientRect();
-      const w = Math.max(1, Math.floor(rect.width));
-      const h = Math.max(1, Math.floor(rect.height));
-
-      avatar3d.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      avatar3d.renderer.setSize(w, h, false);
-      avatar3d.camera.aspect = w / h;
-      avatar3d.camera.updateProjectionMatrix();
+      if (!avatarRenderer || !avatarCamera) return;
+      const w = avatarCanvas.clientWidth || 520;
+      const h = avatarCanvas.clientHeight || 420;
+      avatarRenderer.setSize(w, h, false);
+      avatarCamera.aspect = w / h;
+      avatarCamera.updateProjectionMatrix();
     }
 
-    function avatarAnimate() {
-      avatar3d.raf = requestAnimationFrame(avatarAnimate);
-      if (!avatar3d.renderer || !avatar3d.scene || !avatar3d.camera) return;
-      if (avatar3d.controls) avatar3d.controls.update();
-      avatar3d.renderer.render(avatar3d.scene, avatar3d.camera);
-    }
-
-    function makeHandRig(colorHex) {
+    function buildHand(THREE, isRight=true) {
       const group = new THREE.Group();
 
-      const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.5, metalness: 0.1 });
-
-      // Palm
-      const palm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.55), mat);
+      const palmGeom = new THREE.BoxGeometry(1.6, 0.3, 1.6);
+      const palmMat = new THREE.MeshStandardMaterial({ color: isRight ? 0x66ccff : 0x99ff99 });
+      const palm = new THREE.Mesh(palmGeom, palmMat);
       palm.position.set(0, 0, 0);
       group.add(palm);
 
-      // Simple fingers as boxes (thumb, index, middle, ring, pinky)
-      const fingerSpecs = [
-        { name:"thumb",  x:-0.28, z:0.18, len:0.28 },
-        { name:"index",  x:-0.14, z:0.28, len:0.33 },
-        { name:"middle", x: 0.00, z:0.30, len:0.36 },
-        { name:"ring",   x: 0.14, z:0.28, len:0.34 },
-        { name:"pinky",  x: 0.26, z:0.24, len:0.30 },
+      const fingerGeom = new THREE.BoxGeometry(0.25, 0.9, 0.25);
+      const fingerMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+
+      const offsets = [
+        [-0.6, 0.7,  0.4], // thumb-ish
+        [-0.35, 0.8, 0.75], // index
+        [ 0.00, 0.85, 0.80], // middle
+        [ 0.35, 0.8, 0.75], // ring
+        [ 0.65, 0.75, 0.60], // pinky
       ];
 
-      const fingerMap = {};
-      for (const f of fingerSpecs) {
-        const g = new THREE.Group();
-        g.position.set(f.x, 0.04, f.z);
-
-        const seg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, f.len), mat);
-        seg.position.set(0, 0, f.len/2);
-        g.add(seg);
-
-        group.add(g);
-        fingerMap[f.name] = g;
+      const fingers = [];
+      for (let i=0;i<5;i++){
+        const f = new THREE.Mesh(fingerGeom, fingerMat);
+        f.position.set(offsets[i][0], offsets[i][1], offsets[i][2]);
+        f.rotation.x = -0.1;
+        group.add(f);
+        fingers.push(f);
       }
 
-      group.userData = { fingers: fingerMap };
+      group.userData = { palm, fingers };
       return group;
     }
 
-    // Pose model: curls per finger: [curl0,curl1,curl2] in 0..1
-    function applyHandPose(handGroup, pose) {
-      if (!handGroup || !handGroup.userData?.fingers) return;
-      const f = handGroup.userData.fingers;
+    function applyPresetToHand(hand, presetName) {
+      const fingers = hand.userData.fingers;
 
-      // each finger group rotates around X to "curl"
-      // 0 = straight, 1 = curled
-      function setFinger(name, curlArr) {
-        const g = f[name];
-        if (!g) return;
-        const c = Array.isArray(curlArr) ? curlArr[0] : 0;
-        const angle = -c * 1.2; // radians
-        g.rotation.x = angle;
+      // Default = open
+      const open = [-0.1,-0.1,-0.1,-0.1,-0.1];
+      let bend = open;
+
+      // Very rough placeholder poses
+      if (presetName === "A") bend = [0.8,1.2,1.2,1.2,1.2];
+      if (presetName === "B") bend = [0.9,0.1,0.1,0.1,0.1];
+      if (presetName === "C") bend = [0.3,0.4,0.4,0.4,0.4];
+      if (presetName === "L") bend = [0.9,0.1,1.2,1.2,1.2];
+      if (presetName === "V") bend = [0.9,0.1,0.1,1.2,1.2];
+
+      for (let i=0;i<5;i++){
+        fingers[i].rotation.x = bend[i];
       }
-
-      setFinger("thumb", pose?.thumb || [0,0,0]);
-      setFinger("index", pose?.index || [0,0,0]);
-      setFinger("middle", pose?.middle || [0,0,0]);
-      setFinger("ring", pose?.ring || [0,0,0]);
-      setFinger("pinky", pose?.pinky || [0,0,0]);
     }
 
-    function getPresetPose(name) {
-      // Very simple "curls" presets for demo
-      if (name === "fist") {
-        return { thumb:[0.7,0,0], index:[1,0,0], middle:[1,0,0], ring:[1,0,0], pinky:[1,0,0] };
+    function avatarLoop() {
+      if (!avatarRenderer) return;
+      waveT += 0.02;
+      if (avatarRight) {
+        avatarRight.rotation.y = Math.sin(waveT) * 0.15;
       }
-      if (name === "point") {
-        return { thumb:[0.6,0,0], index:[0.05,0,0], middle:[1,0,0], ring:[1,0,0], pinky:[1,0,0] };
+      if (avatarLeft) {
+        avatarLeft.rotation.y = -Math.sin(waveT) * 0.15;
       }
-      if (name === "wave") {
-        return { thumb:[0.2,0,0], index:[0.2,0,0], middle:[0.2,0,0], ring:[0.2,0,0], pinky:[0.2,0,0] };
-      }
-      return { thumb:[0.05,0,0], index:[0.05,0,0], middle:[0.05,0,0], ring:[0.05,0,0], pinky:[0.05,0,0] };
+      avatarControls?.update?.();
+      avatarRenderer.render(avatarScene, avatarCamera);
+      avatarRAF = requestAnimationFrame(avatarLoop);
     }
 
     function initAvatar3DOnce() {
-      if (avatar3d.initialized) return;
+      if (avatarInited) return;
+      setAvatarStatus("Starting…");
 
-      if (!window.THREE) throw new Error("THREE not found. three.min.js failed to load.");
-      if (!THREE.OrbitControls) throw new Error("OrbitControls not found. OrbitControls.js failed to load.");
+      const THREE = assertThreeReadyOrThrow();
 
-      const canvas = document.getElementById("avatarCanvas");
-      const host = document.getElementById("avatarViewport");
-      if (!canvas || !host) throw new Error("Avatar canvas/host not found");
+      avatarRenderer = new THREE.WebGLRenderer({ canvas: avatarCanvas, antialias: true, alpha: false });
+      avatarRenderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      avatarScene = new THREE.Scene();
+      avatarScene.background = new THREE.Color(0x000000);
 
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0b0b0b);
+      const w = avatarCanvas.clientWidth || 520;
+      const h = avatarCanvas.clientHeight || 420;
 
-      const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 100);
-      camera.position.set(0, 1.6, 3.2);
-      camera.lookAt(0, 1.2, 0);
+      avatarCamera = new THREE.PerspectiveCamera(50, w/h, 0.1, 1000);
+      avatarCamera.position.set(0, 2.6, 6);
 
-      const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
+      // Controls
+      avatarControls = new THREE.OrbitControls(avatarCamera, avatarRenderer.domElement);
+      avatarControls.enableDamping = true;
+      avatarControls.dampingFactor = 0.06;
+      avatarControls.target.set(0, 1.2, 0);
 
       // Lights
-      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-      const dir = new THREE.DirectionalLight(0xffffff, 0.95);
-      dir.position.set(2, 3, 2);
-      scene.add(dir);
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x222233, 0.9);
+      avatarScene.add(hemi);
+      const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+      dir.position.set(5, 8, 4);
+      avatarScene.add(dir);
 
-      // Floor grid
-      const grid = new THREE.GridHelper(6, 12, 0x334455, 0x111111);
-      grid.position.y = 0;
-      scene.add(grid);
+      // Ground (subtle)
+      const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(30, 30),
+        new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 1 })
+      );
+      ground.rotation.x = -Math.PI/2;
+      ground.position.y = 0;
+      avatarScene.add(ground);
 
-      // Two hands
-      const rightHand = makeHandRig(0x00ff7f);
-      rightHand.position.set(0.35, 1.1, 0);
-      rightHand.rotation.y = -0.2;
+      // Hands
+      avatarRight = buildHand(THREE, true);
+      avatarLeft  = buildHand(THREE, false);
 
-      const leftHand = makeHandRig(0x00e0ff);
-      leftHand.position.set(-0.35, 1.1, 0);
-      leftHand.rotation.y = 0.2;
+      avatarRight.position.set(1.2, 1.2, 0);
+      avatarLeft.position.set(-1.2, 1.2, 0);
 
-      scene.add(rightHand);
-      scene.add(leftHand);
-
-      const controls = new THREE.OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.target.set(0, 1.15, 0);
-      controls.update();
-
-      avatar3d = { initialized:true, scene, camera, renderer, controls, raf:null, rightHand, leftHand };
+      avatarScene.add(avatarRight);
+      avatarScene.add(avatarLeft);
 
       avatarResize();
       window.addEventListener("resize", avatarResize);
-      requestAnimationFrame(() => avatarResize());
-      avatarAnimate();
 
-      // default pose
-      const p = getPresetPose("neutral");
-      applyHandPose(rightHand, p);
-      applyHandPose(leftHand, p);
+      avatarInited = true;
+      setAvatarStatus("Ready");
+      if (!avatarRAF) avatarRAF = requestAnimationFrame(avatarLoop);
     }
 
     function onEnterAvatarTab() {
       try {
         initAvatar3DOnce();
-        requestAnimationFrame(() => avatarResize());
       } catch (e) {
         console.error(e);
-        alert("Avatar failed to initialize. Check Console for details.");
+        setAvatarStatus("Error");
+        alert(
+          "Avatar failed to initialize.\n\n" +
+          String(e.message || e) +
+          "\n\nFix: Ensure repo contains:\n" +
+          "  /vendor/three/three.min.js\n" +
+          "  /vendor/three/OrbitControls.js"
+        );
       }
     }
 
-    // Avatar controls
     avatarApplyBtn.addEventListener("click", () => {
-      if (!avatar3d.initialized) return;
-      const p = getPresetPose(avatarPresetEl.value);
-      applyHandPose(avatar3d.rightHand, p);
-      applyHandPose(avatar3d.leftHand, p);
-    });
-
-    let waveTimer = null;
-    avatarWaveBtn.addEventListener("click", () => {
-      if (!avatar3d.initialized) return;
-      if (waveTimer) { clearInterval(waveTimer); waveTimer = null; }
-      let t = 0;
-      waveTimer = setInterval(() => {
-        t += 0.1;
-        // wave by curling/un-curling index+middle slightly
-        const curl = 0.15 + 0.25 * (0.5 + 0.5*Math.sin(t*3));
-        const pose = getPresetPose("wave");
-        pose.index = [curl,0,0];
-        pose.middle = [curl,0,0];
-        applyHandPose(avatar3d.rightHand, pose);
-        applyHandPose(avatar3d.leftHand, pose);
-        if (t > 6) { clearInterval(waveTimer); waveTimer = null; }
-      }, 33);
+      if (!avatarInited) onEnterAvatarTab();
+      const p = avatarPresetEl.value;
+      applyPresetToHand(avatarRight, p);
+      applyPresetToHand(avatarLeft, p);
     });
 
     avatarResetBtn.addEventListener("click", () => {
-      if (!avatar3d.initialized) return;
-      const p = getPresetPose("neutral");
-      applyHandPose(avatar3d.rightHand, p);
-      applyHandPose(avatar3d.leftHand, p);
+      if (!avatarInited) onEnterAvatarTab();
+      applyPresetToHand(avatarRight, "Neutral");
+      applyPresetToHand(avatarLeft, "Neutral");
+    });
+
+    avatarWaveBtn.addEventListener("click", () => {
+      if (!avatarInited) onEnterAvatarTab();
+      waveT = 0;
     });
 
     avatarImportPose.addEventListener("change", async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      if (!avatarInited) onEnterAvatarTab();
       try {
-        const obj = JSON.parse(await file.text());
-        if (!avatar3d.initialized) initAvatar3DOnce();
-        if (obj.right) applyHandPose(avatar3d.rightHand, obj.right);
-        if (obj.left) applyHandPose(avatar3d.leftHand, obj.left);
-        alert("Pose imported.");
+        const text = await file.text();
+        const obj = JSON.parse(text);
+        // Very simple: expecting { preset: "A" } for now
+        if (obj.preset) {
+          avatarPresetEl.value = obj.preset;
+          applyPresetToHand(avatarRight, obj.preset);
+          applyPresetToHand(avatarLeft, obj.preset);
+        } else {
+          alert("Pose JSON recognized only as { preset: \"A\" } in this MVP.");
+        }
       } catch (err) {
         console.error(err);
-        alert("Pose import failed (invalid JSON).");
-      } finally {
-        avatarImportPose.value = "";
+        alert("Invalid JSON.");
       }
+      avatarImportPose.value = "";
     });
 
     // -----------------------
@@ -1674,11 +1633,7 @@
     sampleCountEl.textContent = knn.getNumExamples();
     updateRecorderHeader();
     applyRecPreset("normal");
-
-    rawLabelEl.textContent = "—";
-    stableLabelEl.textContent = "—";
-    confEl.textContent = "—";
-    handInfoEl.textContent = "—";
+    setAvatarStatus("Idle");
   </script>
 </body>
 </html>
