@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ASL MVP (Profiles + Recorder + Test Only)</title>
+  <title>ASL MVP (Profiles + Recorder + Demo + Avatar)</title>
   <style>
     :root { --bg:#fff; --fg:#111; --muted:#555; --border:#ddd; --soft:#fafafa; --danger:#b00020; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; color:var(--fg); background:var(--bg); }
@@ -58,6 +58,34 @@
 
     .kpi { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .kpi .badge { background:#f6f6f6; }
+
+    /* Avatar tab (isolated styles) */
+    #avatarViewport {
+      width: 100%;
+      height: 520px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #0b0b0b;
+      overflow: hidden;
+      position: relative;
+    }
+    #avatarCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .avatarHint {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.20);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      backdrop-filter: blur(6px);
+    }
   </style>
 </head>
 <body>
@@ -65,12 +93,14 @@
   <div class="muted">
     Local inference (no cloud). MediaPipe HandLandmarker + TF.js kNN for Demo.
     Recorder uses <b>stability-based auto-capture</b>. New: <b>Test-only</b> in Recorder (no capture).
+    Added: <b>3D Avatar</b> (isolated tab; does not affect Recorder/Demo).
   </div>
 
   <div class="tabs">
     <button class="tabBtn active" id="tabDemoBtn">Demo</button>
     <button class="tabBtn" id="tabRecorderBtn">Recorder</button>
     <button class="tabBtn" id="tabProfilesBtn">Profiles</button>
+    <button class="tabBtn" id="tabAvatarBtn">Avatar</button>
   </div>
 
   <div class="inline" style="margin: 6px 0 14px 0;">
@@ -188,7 +218,6 @@
           <span class="badge">Motion: <b id="recMotion">—</b></span>
         </div>
 
-        <!-- NEW: Capture toggle + Test-only preview -->
         <div class="inline" style="margin-top:10px;">
           <label class="badge" style="cursor:pointer;">
             <input id="recCaptureEnabled" type="checkbox" checked style="margin-right:8px;">
@@ -307,6 +336,86 @@
     </div>
   </div>
 
+  <!-- AVATAR TAB (isolated, safe) -->
+  <div id="tabAvatar" class="hide">
+    <div class="row">
+      <div class="panel">
+        <div class="muted">3D Avatar (Two Hands)</div>
+        <div class="hr"></div>
+
+        <div class="inline">
+          <span class="badge">This tab is isolated: it does not change Recorder/Demo logic.</span>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="grid">
+          <div>
+            <label class="small">Pose preset</label>
+            <select id="avatarPreset">
+              <option value="neutral">Neutral</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+              <option value="E">E</option>
+              <option value="F">F</option>
+              <option value="I">I</option>
+              <option value="L">L</option>
+              <option value="O">O</option>
+              <option value="S">S</option>
+              <option value="T">T</option>
+              <option value="U">U</option>
+              <option value="V">V</option>
+              <option value="W">W</option>
+              <option value="Y">Y</option>
+            </select>
+          </div>
+          <div>
+            <label class="small">Playback</label>
+            <div class="inline">
+              <button id="avatarApplyBtn" class="btnPrimary">Apply</button>
+              <button id="avatarWaveBtn">Wave</button>
+              <button id="avatarResetBtn">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="grid">
+          <div>
+            <label class="small">Load pose JSON (optional)</label>
+            <label class="badge" style="cursor:pointer;">
+              Import pose JSON
+              <input id="avatarPoseImport" type="file" accept="application/json" style="display:none;">
+            </label>
+          </div>
+          <div>
+            <label class="small">Pose JSON format</label>
+            <div class="mono">
+              {"right":[thumb,index,middle,ring,pinky],"left":[...]}<br/>
+              each finger = [curl0,curl1,curl2] in 0..1
+            </div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <div class="mono">
+          This is a simplified rig (boxes). Next step: map letters/words to a real skeleton + blendshapes, and later connect it to your dataset.
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="muted">Viewport</div>
+        <div id="avatarViewport">
+          <canvas id="avatarCanvas"></canvas>
+          <div class="avatarHint">Drag = rotate • Wheel = zoom</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Profile Switch Modal -->
   <div class="modalOverlay" id="profileModal">
     <div class="modal">
@@ -343,7 +452,7 @@
     </div>
   </div>
 
-  <!-- Recorder Advance Overlay (Stop & Confirm) -->
+  <!-- Recorder Advance Overlay -->
   <div class="modalOverlay" id="advanceOverlay">
     <div class="modal">
       <div class="modalTitle">Letter completed</div>
@@ -363,24 +472,51 @@
   <script type="module">
     import { FilesetResolver, HandLandmarker, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
+    // -----------------------
+    // SAFE FEATURE FLAG
+    // -----------------------
+    const ENABLE_AVATAR_TAB = true;
+
     // Tabs
     const tabDemoBtn = document.getElementById("tabDemoBtn");
     const tabRecorderBtn = document.getElementById("tabRecorderBtn");
     const tabProfilesBtn = document.getElementById("tabProfilesBtn");
+    const tabAvatarBtn = document.getElementById("tabAvatarBtn");
+
     const tabDemo = document.getElementById("tabDemo");
     const tabRecorder = document.getElementById("tabRecorder");
     const tabProfiles = document.getElementById("tabProfiles");
+    const tabAvatar = document.getElementById("tabAvatar");
+
     function setActiveTab(name) {
       tabDemoBtn.classList.toggle("active", name === "demo");
       tabRecorderBtn.classList.toggle("active", name === "recorder");
       tabProfilesBtn.classList.toggle("active", name === "profiles");
+      tabAvatarBtn.classList.toggle("active", name === "avatar");
+
       tabDemo.classList.toggle("hide", name !== "demo");
       tabRecorder.classList.toggle("hide", name !== "recorder");
       tabProfiles.classList.toggle("hide", name !== "profiles");
+      tabAvatar.classList.toggle("hide", name !== "avatar");
+
+      // Lazy init avatar on first open (safe, isolated)
+      if (name === "avatar" && ENABLE_AVATAR_TAB) {
+        initAvatarTabOnce().catch(err => {
+          console.error(err);
+          alert("Avatar failed to initialize. You can disable it by setting ENABLE_AVATAR_TAB = false.");
+        });
+      }
     }
+
     tabDemoBtn.addEventListener("click", () => setActiveTab("demo"));
     tabRecorderBtn.addEventListener("click", () => setActiveTab("recorder"));
     tabProfilesBtn.addEventListener("click", () => setActiveTab("profiles"));
+    tabAvatarBtn.addEventListener("click", () => setActiveTab("avatar"));
+
+    if (!ENABLE_AVATAR_TAB) {
+      tabAvatarBtn.style.display = "none";
+      tabAvatar.classList.add("hide");
+    }
 
     // Top bar
     const activeProfileNameEl = document.getElementById("activeProfileName");
@@ -1129,7 +1265,7 @@
       recPrevVec = vec;
       recMotionEl.textContent = isFinite(vecDelta) ? vecDelta.toFixed(3) : "—";
 
-      // Test-only preview (does NOT emit transcript, does NOT capture)
+      // Test-only preview
       if (knn.getNumExamples() > 0) {
         const pred = await knnPredict(lastRecDominantLandmarks);
         if (pred.label) {
@@ -1328,24 +1464,6 @@
       profileModalNewName.value = "";
     });
 
-    // Advance overlay
-    advanceStayBtn.addEventListener("click", () => hideAdvanceOverlay());
-    advanceContinueBtn.addEventListener("click", () => {
-      if (!pendingAdvance) { hideAdvanceOverlay(); return; }
-      recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
-      recStableSince = 0; recPrevVec = null;
-      recPredHistory = [];
-      recTestRawEl.textContent = "—";
-      recTestStableEl.textContent = "—";
-      recTestConfEl.textContent = "—";
-      pendingAdvance = null;
-      hideAdvanceOverlay();
-      updateRecorderHeader();
-      recIsRunning = true;
-      recStartBtn.disabled = true; recStopBtn.disabled = false;
-      updateRecorderHeader();
-    });
-
     // Persist on unload
     window.addEventListener("beforeunload", () => { try { persistActiveProfileDataset(); } catch {} });
 
@@ -1357,11 +1475,478 @@
     updateRecorderHeader();
     applyRecPreset("normal");
 
-    // Demo-specific header init
+    // Demo init
     rawLabelEl.textContent = "—";
     stableLabelEl.textContent = "—";
     confEl.textContent = "—";
     handInfoEl.textContent = "—";
+
+    // -----------------------
+    // AVATAR TAB (isolated module)
+    // -----------------------
+    const avatarPresetEl = document.getElementById("avatarPreset");
+    const avatarApplyBtn = document.getElementById("avatarApplyBtn");
+    const avatarWaveBtn = document.getElementById("avatarWaveBtn");
+    const avatarResetBtn = document.getElementById("avatarResetBtn");
+    const avatarPoseImport = document.getElementById("avatarPoseImport");
+    const avatarCanvas = document.getElementById("avatarCanvas");
+    const avatarViewport = document.getElementById("avatarViewport");
+
+    let avatarInited = false;
+    let THREE = null, OrbitControls = null;
+    let avatar = null;
+
+    async function loadThreeModule() {
+      // Dynamically import to avoid any impact on other tabs
+      const threeMod = await import("https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js");
+      THREE = threeMod;
+      const ctrlMod = await import("https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js");
+      OrbitControls = ctrlMod.OrbitControls;
+    }
+
+    function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+    function lerp(a,b,t){ return a + (b-a)*t; }
+
+    // Pose format:
+    // right: [ [c0,c1,c2] x 5 fingers ] ; left same
+    function presetPose(name) {
+      // finger order: thumb, index, middle, ring, pinky
+      const NEU = [
+        [0.10,0.10,0.10],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+      ];
+      const fist = [
+        [0.85,0.90,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ];
+      const open = [
+        [0.15,0.15,0.15],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+      ];
+
+      const p = (name || "neutral").toUpperCase();
+      if (p === "NEUTRAL") return { right: NEU, left: NEU };
+
+      // Extremely simplified approximations:
+      if (p === "A") return { right: [
+        [0.35,0.55,0.65], // thumb along
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ], left: [
+        [0.35,0.55,0.65],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ]};
+
+      if (p === "B") return { right: open, left: open };
+
+      if (p === "C") return { right: [
+        [0.25,0.35,0.45],
+        [0.30,0.35,0.40],
+        [0.30,0.35,0.40],
+        [0.30,0.35,0.40],
+        [0.30,0.35,0.40],
+      ], left: [
+        [0.25,0.35,0.45],
+        [0.30,0.35,0.40],
+        [0.30,0.35,0.40],
+        [0.30,0.35,0.40],
+        [0.30,0.35,0.40],
+      ]};
+
+      if (p === "D") return { right: [
+        [0.55,0.70,0.75],
+        [0.05,0.05,0.05], // index up
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ], left: [
+        [0.55,0.70,0.75],
+        [0.05,0.05,0.05],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ]};
+
+      if (p === "E") return { right: fist, left: fist };
+
+      if (p === "F") return { right: [
+        [0.35,0.50,0.60], // thumb bent
+        [0.60,0.75,0.85], // index curled to touch
+        [0.05,0.05,0.05], // others open-ish
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+      ], left: [
+        [0.35,0.50,0.60],
+        [0.60,0.75,0.85],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+      ]};
+
+      if (p === "I") return { right: [
+        [0.70,0.85,0.90],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.05,0.05,0.05], // pinky up
+      ], left: [
+        [0.70,0.85,0.90],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.05,0.05,0.05],
+      ]};
+
+      if (p === "L") return { right: [
+        [0.10,0.20,0.30], // thumb out
+        [0.05,0.05,0.05], // index up
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ], left: [
+        [0.10,0.20,0.30],
+        [0.05,0.05,0.05],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ]};
+
+      if (p === "O") return { right: [
+        [0.35,0.50,0.60],
+        [0.55,0.70,0.80],
+        [0.55,0.70,0.80],
+        [0.55,0.70,0.80],
+        [0.55,0.70,0.80],
+      ], left: [
+        [0.35,0.50,0.60],
+        [0.55,0.70,0.80],
+        [0.55,0.70,0.80],
+        [0.55,0.70,0.80],
+        [0.55,0.70,0.80],
+      ]};
+
+      if (p === "S") return { right: [
+        [0.75,0.90,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ], left: [
+        [0.75,0.90,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ]};
+
+      if (p === "T") return { right: [
+        [0.65,0.80,0.90],
+        [0.85,0.90,0.95], // index curled in
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ], left: [
+        [0.65,0.80,0.90],
+        [0.85,0.90,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ]};
+
+      if (p === "U") return { right: [
+        [0.60,0.80,0.90],
+        [0.05,0.05,0.05], // index up
+        [0.05,0.05,0.05], // middle up
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ], left: [
+        [0.60,0.80,0.90],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ]};
+
+      if (p === "V") return { right: [
+        [0.60,0.80,0.90],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ], left: [
+        [0.60,0.80,0.90],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+      ]};
+
+      if (p === "W") return { right: [
+        [0.60,0.80,0.90],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05], // ring up too
+        [0.95,0.95,0.95],
+      ], left: [
+        [0.60,0.80,0.90],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+        [0.05,0.05,0.05],
+        [0.95,0.95,0.95],
+      ]};
+
+      if (p === "Y") return { right: [
+        [0.05,0.05,0.05], // thumb up/out
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.05,0.05,0.05], // pinky up
+      ], left: [
+        [0.05,0.05,0.05],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.95,0.95,0.95],
+        [0.05,0.05,0.05],
+      ]};
+
+      return { right: NEU, left: NEU };
+    }
+
+    function safePoseFromJSON(obj) {
+      function normHand(h) {
+        const out = [];
+        for (let f = 0; f < 5; f++) {
+          const seg = h?.[f];
+          const c0 = clamp01(seg?.[0] ?? 0.1);
+          const c1 = clamp01(seg?.[1] ?? 0.1);
+          const c2 = clamp01(seg?.[2] ?? 0.1);
+          out.push([c0,c1,c2]);
+        }
+        return out;
+      }
+      return { right: normHand(obj?.right), left: normHand(obj?.left) };
+    }
+
+    async function initAvatarTabOnce() {
+      if (!ENABLE_AVATAR_TAB) return;
+      if (avatarInited) return;
+      avatarInited = true;
+
+      setStatus("Loading Avatar…");
+      await loadThreeModule();
+
+      // Minimal, safe 3D scene (no interaction with other code)
+      const { Scene, PerspectiveCamera, WebGLRenderer, Color, AmbientLight, DirectionalLight, Mesh, MeshStandardMaterial,
+              BoxGeometry, Group, Vector3 } = THREE;
+
+      const scene = new Scene();
+      scene.background = new Color(0x0b0b0b);
+
+      const cam = new PerspectiveCamera(45, 1, 0.01, 50);
+      cam.position.set(0, 1.1, 4.2);
+
+      const renderer = new WebGLRenderer({ canvas: avatarCanvas, antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+
+      const controls = new OrbitControls(cam, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.target.set(0, 0.85, 0);
+      controls.update();
+
+      scene.add(new AmbientLight(0xffffff, 0.55));
+      const key = new DirectionalLight(0xffffff, 0.85);
+      key.position.set(3, 5, 3);
+      scene.add(key);
+
+      const matPalm = new MeshStandardMaterial({ color: 0x9a7b66, metalness: 0.05, roughness: 0.75 });
+      const matFinger = new MeshStandardMaterial({ color: 0xb08e77, metalness: 0.05, roughness: 0.70 });
+
+      function makeBox(w,h,d, mat) {
+        return new Mesh(new BoxGeometry(w,h,d), mat);
+      }
+
+      // Simple hand rig: palm + 5 fingers x 3 segments
+      function buildHand(isLeft) {
+        const root = new Group();
+        root.position.set(isLeft ? -0.9 : 0.9, 0.8, 0);
+        root.scale.set(isLeft ? -1 : 1, 1, 1); // mirror for left
+
+        const palm = makeBox(1.0, 0.25, 0.55, matPalm);
+        palm.position.set(0, 0, 0);
+        root.add(palm);
+
+        const fingerBases = [
+          { name:"thumb",  x:-0.48, y: 0.02, z: 0.12, s:[0.22,0.16,0.18], angle: 0.55 },
+          { name:"index",  x:-0.20, y: 0.12, z: 0.30, s:[0.18,0.20,0.18], angle: 0.00 },
+          { name:"middle", x: 0.00, y: 0.13, z: 0.32, s:[0.18,0.22,0.18], angle: 0.00 },
+          { name:"ring",   x: 0.20, y: 0.12, z: 0.30, s:[0.18,0.21,0.18], angle: 0.00 },
+          { name:"pinky",  x: 0.40, y: 0.10, z: 0.25, s:[0.16,0.18,0.16], angle: 0.00 },
+        ];
+
+        const fingers = [];
+
+        for (let f = 0; f < fingerBases.length; f++) {
+          const base = fingerBases[f];
+          const chain = [];
+
+          // segment groups to rotate around joints
+          const g0 = new Group();
+          g0.position.set(base.x, base.y, base.z);
+          g0.rotation.x = -0.12;
+          g0.rotation.y = base.angle; // thumb spread
+          root.add(g0);
+
+          const seg0 = makeBox(base.s[0], base.s[1], base.s[2], matFinger);
+          seg0.position.set(0, base.s[1]*0.5, 0);
+          g0.add(seg0);
+
+          const g1 = new Group();
+          g1.position.set(0, base.s[1], 0);
+          g0.add(g1);
+
+          const seg1 = makeBox(base.s[0]*0.92, base.s[1]*0.95, base.s[2]*0.92, matFinger);
+          seg1.position.set(0, base.s[1]*0.48, 0);
+          g1.add(seg1);
+
+          const g2 = new Group();
+          g2.position.set(0, base.s[1]*0.95, 0);
+          g1.add(g2);
+
+          const seg2 = makeBox(base.s[0]*0.85, base.s[1]*0.90, base.s[2]*0.85, matFinger);
+          seg2.position.set(0, base.s[1]*0.45, 0);
+          g2.add(seg2);
+
+          chain.push(g0, g1, g2);
+          fingers.push(chain);
+        }
+
+        return { root, fingers };
+      }
+
+      const rightHand = buildHand(false);
+      const leftHand = buildHand(true);
+      scene.add(rightHand.root);
+      scene.add(leftHand.root);
+
+      function applyHandPose(hand, pose5) {
+        // pose5: 5 fingers, each [c0,c1,c2] in 0..1
+        // curl -> rotation around x (folding)
+        for (let f = 0; f < 5; f++) {
+          const [c0,c1,c2] = pose5[f] || [0.1,0.1,0.1];
+          const g0 = hand.fingers[f][0];
+          const g1 = hand.fingers[f][1];
+          const g2 = hand.fingers[f][2];
+
+          // Map curls to radians (simple)
+          g0.rotation.x = lerp(-0.10, -1.10, clamp01(c0));
+          g1.rotation.x = lerp( 0.00, -1.05, clamp01(c1));
+          g2.rotation.x = lerp( 0.00, -0.95, clamp01(c2));
+        }
+      }
+
+      const avatarState = {
+        scene, cam, renderer, controls,
+        rightHand, leftHand,
+        currentPose: presetPose("neutral"),
+        animId: null,
+        waveT: 0,
+        waving: false,
+      };
+
+      function applyPose(poseObj) {
+        const pose = safePoseFromJSON(poseObj);
+        avatarState.currentPose = pose;
+        applyHandPose(avatarState.rightHand, pose.right);
+        applyHandPose(avatarState.leftHand,  pose.left);
+      }
+
+      function resize() {
+        const rect = avatarViewport.getBoundingClientRect();
+        const w = Math.max(10, Math.floor(rect.width));
+        const h = Math.max(10, Math.floor(rect.height));
+        avatarState.renderer.setSize(w, h, false);
+        avatarState.cam.aspect = w / h;
+        avatarState.cam.updateProjectionMatrix();
+      }
+
+      function tick() {
+        avatarState.controls.update();
+
+        if (avatarState.waving) {
+          avatarState.waveT += 0.08;
+          const s = Math.sin(avatarState.waveT) * 0.55;
+          // wave right hand palm a bit
+          avatarState.rightHand.root.rotation.y = s;
+          avatarState.rightHand.root.rotation.z = s * 0.25;
+        } else {
+          avatarState.rightHand.root.rotation.y *= 0.85;
+          avatarState.rightHand.root.rotation.z *= 0.85;
+        }
+
+        avatarState.renderer.render(avatarState.scene, avatarState.cam);
+        avatarState.animId = requestAnimationFrame(tick);
+      }
+
+      window.addEventListener("resize", resize);
+
+      // UI events (isolated)
+      avatarApplyBtn.addEventListener("click", () => {
+        const p = presetPose(avatarPresetEl.value);
+        applyPose(p);
+        avatarState.waving = false;
+      });
+
+      avatarResetBtn.addEventListener("click", () => {
+        applyPose(presetPose("neutral"));
+        avatarState.waving = false;
+        avatarState.waveT = 0;
+      });
+
+      avatarWaveBtn.addEventListener("click", () => {
+        avatarState.waving = !avatarState.waving;
+        if (!avatarState.waving) avatarState.waveT = 0;
+      });
+
+      avatarPoseImport.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const obj = JSON.parse(text);
+          applyPose(obj);
+          avatarState.waving = false;
+          alert("Pose JSON applied.");
+        } catch (err) {
+          console.error(err);
+          alert("Invalid pose JSON.");
+        } finally {
+          avatarPoseImport.value = "";
+        }
+      });
+
+      // Start render loop
+      avatar = { ...avatarState, applyPose };
+      resize();
+      applyPose(presetPose("neutral"));
+      tick();
+
+      setStatus("Idle");
+    }
   </script>
 </body>
 </html>
