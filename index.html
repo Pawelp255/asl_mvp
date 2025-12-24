@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ASL MVP (Profiles + Recorder + Avatar 2D)</title>
+  <title>ASL MVP (Profiles + Demo + Recorder + Avatar + Words Recorder)</title>
   <style>
     :root { --bg:#fff; --fg:#111; --muted:#555; --border:#ddd; --soft:#fafafa; --danger:#b00020; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; color:var(--fg); background:var(--bg); }
@@ -12,7 +12,7 @@
     .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
     .panel { border:1px solid var(--border); border-radius:12px; padding:12px; background:#fff; flex: 1 1 520px; min-width: 300px; }
     video, canvas { width: 520px; max-width:100%; border-radius:12px; background:#000; }
-    .big { font-size: 22px; font-weight: 800; }
+    .big { font-size: 22px; font-weight: 700; }
     button, select, input { padding:10px 12px; border-radius:10px; border:1px solid #ccc; background:#fff; cursor:pointer; }
     button:disabled { opacity:0.5; cursor:not-allowed; }
     button:active { transform: translateY(1px); }
@@ -50,24 +50,22 @@
       padding: 14px;
       box-shadow: 0 12px 40px rgba(0,0,0,0.3);
     }
-    .modalTitle { font-weight:900; font-size:18px; margin-bottom:6px; }
+    .modalTitle { font-weight:800; font-size:18px; margin-bottom:6px; }
     .modalActions { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
     .btnPrimary { background:#111; color:#fff; border-color:#111; }
     .btnGhost { background:#fff; }
     .btnDanger { background: var(--danger); color:#fff; border-color: var(--danger); }
+
     .kpi { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .kpi .badge { background:#f6f6f6; }
-
-    /* Avatar 2D UI */
-    .avatarCanvas { width: 520px; max-width: 100%; height: auto; border-radius: 12px; border:1px solid var(--border); background:#0b0b0b; }
-    .hint { font-size:12px; color: var(--muted); }
   </style>
 </head>
 <body>
-  <h1>ASL MVP (Local Profiles + Recorder + Avatar 2D)</h1>
+  <h1>ASL MVP (Local Profiles + Demo + Recorder + Avatar)</h1>
   <div class="muted">
-    Local inference (no cloud). MediaPipe HandLandmarker + TF.js kNN for Demo.
-    Recorder uses <b>stability-based auto-capture</b>. New: <b>Avatar 2D</b> plays a sign sequence from text (fast to test).
+    Local inference (no cloud). MediaPipe HandLandmarker + TF.js kNN for demo.
+    Recorder uses <b>stability-based auto-capture</b>. Includes <b>test-only preview</b>.
+    Avatar plays <b>word clips</b> if present, otherwise <b>fingerspells</b>.
   </div>
 
   <div class="tabs">
@@ -75,16 +73,13 @@
     <button class="tabBtn" id="tabRecorderBtn">Recorder</button>
     <button class="tabBtn" id="tabProfilesBtn">Profiles</button>
     <button class="tabBtn" id="tabAvatarBtn">Avatar</button>
+    <button class="tabBtn" id="tabWordsBtn">Words Recorder</button>
   </div>
 
   <div class="inline" style="margin: 6px 0 14px 0;">
     <span class="badge">Active profile: <b id="activeProfileName">—</b></span>
     <span class="badge">Mode: <b id="activeProfileMode">—</b></span>
     <button id="switchProfileBtn">Switch / Create Profile</button>
-    <a href="./avatar.html" class="tabBtn" style="text-decoration:none; display:inline-flex; align-items:center;">
-  Avatar Dictionary
-</a>
-
     <span class="badge" id="status">Idle</span>
   </div>
 
@@ -167,11 +162,6 @@
 
         <div class="muted">Transcript</div>
         <textarea id="transcript" placeholder="Letters will appear here..."></textarea>
-
-        <div class="inline" style="margin-top:10px;">
-          <button id="sendTranscriptToAvatarBtn">Send transcript → Avatar</button>
-          <span class="hint">Tip: Use SPACE / BACKSPACE too.</span>
-        </div>
 
         <div class="mono" style="margin-top:8px;">
           Notes: Detects up to 2 hands; classification uses the largest hand (dominant by bbox area).
@@ -319,55 +309,94 @@
     </div>
   </div>
 
-  <!-- AVATAR TAB (2D) -->
+  <!-- AVATAR TAB -->
   <div id="tabAvatar" class="hide">
     <div class="row">
       <div class="panel">
-        <div class="muted">Avatar (2D) – Text → Sign Sequence</div>
+        <div class="muted">Text → Sign (Video Avatar)</div>
         <div class="hr"></div>
 
         <div class="inline">
-          <button id="avatarUseTranscriptBtn">Use transcript from Demo</button>
-          <button id="avatarClearTextBtn">Clear</button>
-          <span class="badge">Queue: <b id="avatarQueueKpi">0</b></span>
-        </div>
-
-        <div class="grid" style="margin-top:10px;">
-          <div>
-            <label class="small">Speed (ms per symbol)</label>
-            <input id="avatarSpeedMs" type="number" min="120" max="2500" value="550" />
-          </div>
-          <div>
-            <label class="small">Pause between words (ms)</label>
-            <input id="avatarWordPauseMs" type="number" min="0" max="5000" value="500" />
-          </div>
-        </div>
-
-        <div class="hr"></div>
-
-        <label class="small">Text to play (A–Z, spaces)</label>
-        <textarea id="avatarText" placeholder="Type text like: HELLO WORLD"></textarea>
-
-        <div class="inline" style="margin-top:10px;">
+          <input id="avatarInput" style="flex:1; min-width:260px;"
+                 placeholder="Type text like: hello thank_you please" />
           <button id="avatarPlayBtn" class="btnPrimary">Play</button>
-          <button id="avatarPauseBtn" disabled>Pause</button>
-          <button id="avatarStopBtn" disabled>Stop</button>
-          <span class="badge">Now: <b id="avatarNow">—</b></span>
+          <button id="avatarStopBtn">Stop</button>
         </div>
 
         <div class="hr"></div>
         <div class="mono">
-          This 2D avatar is a fast placeholder. It animates a “sign pose card” per letter.
-          Next step (B): replace this with a real 3D humanoid (VRM) while keeping the same queue/player logic.
+          Priority: words dictionary → fallback to fingerspelling letters.
+          Files loaded from <b>assets/asl/words</b> and <b>assets/asl/letters</b>.
+        </div>
+
+        <div class="hr"></div>
+        <div class="kpi">
+          <span class="badge">Now: <b id="avatarNow">—</b></span>
+          <span class="badge">Queue: <b id="avatarQueue">—</b></span>
+          <span class="badge">Mode: <b id="avatarMode">—</b></span>
         </div>
       </div>
 
       <div class="panel">
-        <div class="muted">Avatar View</div>
+        <div class="muted">Avatar Viewport</div>
         <div class="hr"></div>
-        <canvas id="avatarCanvas" class="avatarCanvas" width="920" height="520"></canvas>
-        <div class="mono" style="margin-top:8px;">
-          Pose coverage: special stylized drawings for A–E + SPACE. Other letters show a clean letter-card (still useful for timing/UX tests).
+
+        <video id="avatarVideo" playsinline autoplay muted loop
+               style="width:520px; max-width:100%; border-radius:12px; background:#000;"></video>
+
+        <div class="hr"></div>
+        <div class="mono" id="avatarLog"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WORDS RECORDER TAB -->
+  <div id="tabWords" class="hide">
+    <div class="row">
+      <div class="panel">
+        <div class="muted">Words Recorder (Create your dictionary)</div>
+        <div class="hr"></div>
+
+        <video id="wordsRecVideo" playsinline autoplay muted></video>
+
+        <div class="inline" style="margin-top:10px;">
+          <button id="wordsRecStartBtn" class="btnPrimary">Start camera</button>
+          <button id="wordsRecStopBtn" disabled>Stop camera</button>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="grid">
+          <div>
+            <label class="small">Word (filename)</label>
+            <input id="wordsRecWord" placeholder="HELLO or THANK_YOU" />
+          </div>
+          <div>
+            <label class="small">Duration (sec)</label>
+            <input id="wordsRecSeconds" type="number" min="1" max="6" value="2" />
+          </div>
+        </div>
+
+        <div class="inline" style="margin-top:10px;">
+          <button id="wordsRecRecordBtn" disabled>Record</button>
+          <button id="wordsRecDownloadBtn" disabled>Download</button>
+        </div>
+
+        <div class="hr"></div>
+        <div class="mono" id="wordsRecStatus">
+          Output format is <b>.webm</b>. Upload it to <b>assets/asl/words/</b>.
+          Avatar will play <b>.mp4</b> or <b>.webm</b>.
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="muted">Preview</div>
+        <div class="hr"></div>
+        <video id="wordsRecPreview" playsinline controls
+               style="width:520px; max-width:100%; border-radius:12px; background:#000;"></video>
+        <div class="hr"></div>
+        <div class="mono">
+          Tip: plain background, hands fully visible, no talking, steady camera.
         </div>
       </div>
     </div>
@@ -429,105 +458,90 @@
   <script type="module">
     import { FilesetResolver, HandLandmarker, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
-    // -----------------------
     // Tabs
-    // -----------------------
     const tabDemoBtn = document.getElementById("tabDemoBtn");
     const tabRecorderBtn = document.getElementById("tabRecorderBtn");
     const tabProfilesBtn = document.getElementById("tabProfilesBtn");
     const tabAvatarBtn = document.getElementById("tabAvatarBtn");
+    const tabWordsBtn = document.getElementById("tabWordsBtn");
 
     const tabDemo = document.getElementById("tabDemo");
     const tabRecorder = document.getElementById("tabRecorder");
     const tabProfiles = document.getElementById("tabProfiles");
     const tabAvatar = document.getElementById("tabAvatar");
+    const tabWords = document.getElementById("tabWords");
 
     function setActiveTab(name) {
       tabDemoBtn.classList.toggle("active", name === "demo");
       tabRecorderBtn.classList.toggle("active", name === "recorder");
       tabProfilesBtn.classList.toggle("active", name === "profiles");
       tabAvatarBtn.classList.toggle("active", name === "avatar");
+      tabWordsBtn.classList.toggle("active", name === "words");
 
       tabDemo.classList.toggle("hide", name !== "demo");
       tabRecorder.classList.toggle("hide", name !== "recorder");
       tabProfiles.classList.toggle("hide", name !== "profiles");
       tabAvatar.classList.toggle("hide", name !== "avatar");
+      tabWords.classList.toggle("hide", name !== "words");
     }
-
     tabDemoBtn.addEventListener("click", () => setActiveTab("demo"));
     tabRecorderBtn.addEventListener("click", () => setActiveTab("recorder"));
     tabProfilesBtn.addEventListener("click", () => setActiveTab("profiles"));
     tabAvatarBtn.addEventListener("click", () => setActiveTab("avatar"));
+    tabWordsBtn.addEventListener("click", () => setActiveTab("words"));
 
-    // -----------------------
     // Top bar
-    // -----------------------
     const activeProfileNameEl = document.getElementById("activeProfileName");
     const activeProfileModeEl = document.getElementById("activeProfileMode");
     const switchProfileBtn = document.getElementById("switchProfileBtn");
     const statusEl = document.getElementById("status");
     function setStatus(s) { statusEl.textContent = s; }
 
-    // -----------------------
     // Demo refs
-    // -----------------------
     const videoEl = document.getElementById("video");
     const canvasEl = document.getElementById("canvas");
     const ctx = canvasEl.getContext("2d");
-
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
     const clearTextBtn = document.getElementById("clearTextBtn");
-
     const stableLabelEl = document.getElementById("stableLabel");
     const rawLabelEl = document.getElementById("rawLabel");
     const confEl = document.getElementById("conf");
     const handInfoEl = document.getElementById("handInfo");
-
     const transcriptEl = document.getElementById("transcript");
-
     const aslLabelEl = document.getElementById("aslLabel");
     const addSampleBtn = document.getElementById("addSampleBtn");
     const clearSamplesBtn = document.getElementById("clearSamplesBtn");
     const sampleCountEl = document.getElementById("sampleCount");
     const exportBtn = document.getElementById("exportBtn");
     const importInput = document.getElementById("importInput");
-
     const stabWindowEl = document.getElementById("stabWindow");
     const stabMajorityEl = document.getElementById("stabMajority");
     const minConfEl = document.getElementById("minConf");
     const emitDebounceEl = document.getElementById("emitDebounce");
 
-    const sendTranscriptToAvatarBtn = document.getElementById("sendTranscriptToAvatarBtn");
-
-    // -----------------------
     // Recorder refs
-    // -----------------------
     const videoRec = document.getElementById("videoRec");
     const canvasRec = document.getElementById("canvasRec");
     const ctxRec = canvasRec.getContext("2d");
-
     const recStartBtn = document.getElementById("recStartBtn");
     const recStopBtn = document.getElementById("recStopBtn");
     const recResetLetterBtn = document.getElementById("recResetLetterBtn");
-
     const recTargetLabelEl = document.getElementById("recTargetLabel");
     const recProgressEl = document.getElementById("recProgress");
     const recAutoStateEl = document.getElementById("recAutoState");
     const recMotionEl = document.getElementById("recMotion");
-
     const recPresetEl = document.getElementById("recPreset");
     const recGoalEl = document.getElementById("recGoal");
     const recHoldMsEl = document.getElementById("recHoldMs");
     const recCooldownMsEl = document.getElementById("recCooldownMs");
     const recStabThreshEl = document.getElementById("recStabThresh");
-
     const recPrevBtn = document.getElementById("recPrevBtn");
     const recNextBtn = document.getElementById("recNextBtn");
-
     const recExportBtn = document.getElementById("recExportBtn");
     const recImportInput = document.getElementById("recImportInput");
 
+    // Capture enabled + test preview
     const recCaptureEnabledEl = document.getElementById("recCaptureEnabled");
     const recTestRawEl = document.getElementById("recTestRaw");
     const recTestStableEl = document.getElementById("recTestStable");
@@ -557,30 +571,31 @@
     const profileModalCreateBtn = document.getElementById("profileModalCreateBtn");
     const profileModalCloseBtn = document.getElementById("profileModalCloseBtn");
 
-    // -----------------------
-    // Avatar 2D refs
-    // -----------------------
-    const avatarTextEl = document.getElementById("avatarText");
-    const avatarCanvas = document.getElementById("avatarCanvas");
-    const avatarCtx = avatarCanvas.getContext("2d");
+    // Avatar
+    const avatarInput = document.getElementById("avatarInput");
     const avatarPlayBtn = document.getElementById("avatarPlayBtn");
-    const avatarPauseBtn = document.getElementById("avatarPauseBtn");
     const avatarStopBtn = document.getElementById("avatarStopBtn");
-    const avatarNowEl = document.getElementById("avatarNow");
-    const avatarSpeedMsEl = document.getElementById("avatarSpeedMs");
-    const avatarWordPauseMsEl = document.getElementById("avatarWordPauseMs");
-    const avatarUseTranscriptBtn = document.getElementById("avatarUseTranscriptBtn");
-    const avatarClearTextBtn = document.getElementById("avatarClearTextBtn");
-    const avatarQueueKpi = document.getElementById("avatarQueueKpi");
+    const avatarVideo = document.getElementById("avatarVideo");
+    const avatarNow = document.getElementById("avatarNow");
+    const avatarQueue = document.getElementById("avatarQueue");
+    const avatarMode = document.getElementById("avatarMode");
+    const avatarLog = document.getElementById("avatarLog");
 
-    // -----------------------
+    // Words recorder
+    const wordsRecVideo = document.getElementById("wordsRecVideo");
+    const wordsRecPreview = document.getElementById("wordsRecPreview");
+    const wordsRecStartBtn = document.getElementById("wordsRecStartBtn");
+    const wordsRecStopBtn = document.getElementById("wordsRecStopBtn");
+    const wordsRecRecordBtn = document.getElementById("wordsRecRecordBtn");
+    const wordsRecDownloadBtn = document.getElementById("wordsRecDownloadBtn");
+    const wordsRecWord = document.getElementById("wordsRecWord");
+    const wordsRecSeconds = document.getElementById("wordsRecSeconds");
+    const wordsRecStatus = document.getElementById("wordsRecStatus");
+
     // kNN
-    // -----------------------
     const knn = knnClassifier.create();
 
-    // -----------------------
     // MediaPipe
-    // -----------------------
     let handLandmarker = null;
     let drawingDemo = null;
     let drawingRec = null;
@@ -680,7 +695,6 @@
       if (!profiles[name]) return;
 
       persistActiveProfileDataset();
-
       localStorage.setItem(LS_ACTIVE, name);
 
       knn.clearAllClasses();
@@ -973,7 +987,7 @@
     startBtn.addEventListener("click", () => demoStart().catch(err => {
       console.error(err);
       setStatus("Error");
-      alert("Could not start. Use Chrome/Edge and run via http(s) (not file://). Check camera permissions.");
+      alert("Could not start. Use Chrome/Edge and run via http://localhost:8000 (not file://). Check camera permissions.");
       demoStop();
     }));
     stopBtn.addEventListener("click", demoStop);
@@ -1055,6 +1069,7 @@
     let recPrevVec = null;
     let pendingAdvance = null;
 
+    // Recorder test stabilization
     let recPredHistory = [];
     function recAddPrediction(label, conf) {
       const windowN = 12;
@@ -1140,21 +1155,6 @@
       advanceOverlay.style.display = "none";
       pendingAdvance = null;
     }
-    advanceStayBtn.addEventListener("click", () => hideAdvanceOverlay());
-    advanceContinueBtn.addEventListener("click", () => {
-      if (!pendingAdvance) return;
-      recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
-      recStableSince = 0; recPrevVec = null;
-      recPredHistory = [];
-      recTestRawEl.textContent = "—";
-      recTestStableEl.textContent = "—";
-      recTestConfEl.textContent = "—";
-      hideAdvanceOverlay();
-      updateRecorderHeader();
-      recIsRunning = true;
-      recStartBtn.disabled = true; recStopBtn.disabled = false;
-      updateRecorderHeader();
-    });
 
     function maybeAutoAdvanceIfDone() {
       const label = getRecTargetLabel();
@@ -1197,6 +1197,7 @@
       updateRecorderHeader();
     }
 
+    // Recorder loop throttle
     let recLastFrameTs = 0;
 
     async function recorderStep(ts) {
@@ -1339,7 +1340,7 @@
     recStartBtn.addEventListener("click", () => recorderStart().catch(err => {
       console.error(err);
       setStatus("Error");
-      alert("Could not start Recorder. Run via http(s) and allow camera.");
+      alert("Could not start Recorder. Run via http://localhost:8000 and allow camera.");
       recorderStop();
     }));
     recStopBtn.addEventListener("click", recorderStop);
@@ -1397,6 +1398,23 @@
       recImportInput.value = "";
     });
 
+    // Advance overlay actions
+    advanceStayBtn.addEventListener("click", () => hideAdvanceOverlay());
+    advanceContinueBtn.addEventListener("click", () => {
+      if (!pendingAdvance) return;
+      recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
+      recStableSince = 0; recPrevVec = null;
+      recPredHistory = [];
+      recTestRawEl.textContent = "—";
+      recTestStableEl.textContent = "—";
+      recTestConfEl.textContent = "—";
+      hideAdvanceOverlay();
+      updateRecorderHeader();
+      recIsRunning = true;
+      recStartBtn.disabled = true; recStopBtn.disabled = false;
+      updateRecorderHeader();
+    });
+
     // -----------------------
     // Profiles UI
     // -----------------------
@@ -1443,294 +1461,235 @@
     // Persist on unload
     window.addEventListener("beforeunload", () => { try { persistActiveProfileDataset(); } catch {} });
 
-    // -----------------------
-    // Avatar 2D engine (A)
-    // -----------------------
-    function sanitizeToAvatarQueue(text) {
-      const t = (text || "").toUpperCase();
-      const out = [];
-      for (const ch of t) {
-        if (ch >= "A" && ch <= "Z") out.push(ch);
-        else if (ch === " ") out.push("SPACE");
-        // ignore other symbols for now
+    // =======================
+    // Avatar (Video Dictionary)
+    // =======================
+    let avatarQueueItems = [];
+    let avatarIsPlaying = false;
+
+    function normalizeToken(t) {
+      return (t || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9_]/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    }
+
+    function tokenizeTextToQueue(text) {
+      const raw = (text || "").trim();
+      if (!raw) return [];
+      const parts = raw.split(/\s+/g).filter(Boolean);
+      return parts.map(p => normalizeToken(p));
+    }
+
+    async function fileExists(url) {
+      try {
+        const res = await fetch(url, { method: "HEAD", cache: "no-store" });
+        return res.ok;
+      } catch {
+        return false;
       }
-      return out;
     }
 
-    function avatarDrawBackground() {
-      const w = avatarCanvas.width, h = avatarCanvas.height;
-      const g = avatarCtx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, "#0b0b0b");
-      g.addColorStop(1, "#101214");
-      avatarCtx.fillStyle = g;
-      avatarCtx.fillRect(0, 0, w, h);
+    async function resolveClipForToken(token) {
+      const wordMp4 = `assets/asl/words/${token}.mp4`;
+      const wordWebm = `assets/asl/words/${token}.webm`;
+      if (await fileExists(wordMp4)) return { url: wordMp4, kind: "word" };
+      if (await fileExists(wordWebm)) return { url: wordWebm, kind: "word" };
+      return { url: null, kind: "spell" };
+    }
 
-      // subtle grid
-      avatarCtx.globalAlpha = 0.12;
-      avatarCtx.strokeStyle = "#ffffff";
-      avatarCtx.lineWidth = 1;
-      for (let x = 0; x < w; x += 40) {
-        avatarCtx.beginPath();
-        avatarCtx.moveTo(x, 0);
-        avatarCtx.lineTo(x, h);
-        avatarCtx.stroke();
+    async function playClip(url, ms = 1600) {
+      return new Promise((resolve) => {
+        avatarVideo.loop = true;
+        avatarVideo.src = url;
+        avatarVideo.onloadeddata = async () => {
+          try { await avatarVideo.play(); } catch {}
+          setTimeout(() => resolve(), ms);
+        };
+        avatarVideo.onerror = () => resolve();
+      });
+    }
+
+    async function playSpell(token) {
+      const chars = token.split("");
+      for (const ch of chars) {
+        if (!avatarIsPlaying) return;
+        if (ch === "_") {
+          avatarMode.textContent = "SPACE";
+          avatarNow.textContent = "SPACE";
+          await new Promise(r => setTimeout(r, 400));
+          continue;
+        }
+        const letterMp4 = `assets/asl/letters/${ch}.mp4`;
+        const letterWebm = `assets/asl/letters/${ch}.webm`;
+        const hasMp4 = await fileExists(letterMp4);
+        const hasWebm = !hasMp4 && await fileExists(letterWebm);
+        const url = hasMp4 ? letterMp4 : (hasWebm ? letterWebm : null);
+
+        if (url) {
+          avatarMode.textContent = "FINGERSPELL";
+          avatarNow.textContent = ch;
+          await playClip(url, 1400);
+        } else {
+          avatarLog.textContent = `Missing letter file: ${ch} (add assets/asl/letters/${ch}.mp4 or .webm)`;
+          await new Promise(r => setTimeout(r, 300));
+        }
       }
-      for (let y = 0; y < h; y += 40) {
-        avatarCtx.beginPath();
-        avatarCtx.moveTo(0, y);
-        avatarCtx.lineTo(w, y);
-        avatarCtx.stroke();
-      }
-      avatarCtx.globalAlpha = 1.0;
     }
 
-    function drawCard(label, subtitle) {
-      const w = avatarCanvas.width, h = avatarCanvas.height;
-      const cx = w * 0.5, cy = h * 0.5;
+    async function avatarLoop() {
+      while (avatarIsPlaying && avatarQueueItems.length > 0) {
+        const token = avatarQueueItems.shift();
+        avatarQueue.textContent = avatarQueueItems.length ? avatarQueueItems.join(" ") : "—";
+        avatarNow.textContent = token;
 
-      avatarDrawBackground();
+        const resolved = await resolveClipForToken(token);
+        if (!avatarIsPlaying) break;
 
-      // Card
-      const cardW = Math.min(520, w * 0.78);
-      const cardH = Math.min(340, h * 0.72);
-      const x = cx - cardW/2;
-      const y = cy - cardH/2;
+        if (resolved.kind === "word" && resolved.url) {
+          avatarMode.textContent = "WORD";
+          await playClip(resolved.url, 2000);
+        } else {
+          await playSpell(token);
+        }
 
-      avatarCtx.fillStyle = "rgba(255,255,255,0.06)";
-      avatarCtx.strokeStyle = "rgba(255,255,255,0.18)";
-      avatarCtx.lineWidth = 2;
-      roundRect(avatarCtx, x, y, cardW, cardH, 18, true, true);
-
-      // Letter
-      avatarCtx.fillStyle = "rgba(255,255,255,0.92)";
-      avatarCtx.font = "900 140px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      avatarCtx.textAlign = "center";
-      avatarCtx.textBaseline = "middle";
-      avatarCtx.fillText(label === "SPACE" ? "␠" : label, cx, cy - 20);
-
-      avatarCtx.fillStyle = "rgba(255,255,255,0.75)";
-      avatarCtx.font = "600 18px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      avatarCtx.fillText(subtitle || "ASL Pose (placeholder)", cx, cy + 110);
-    }
-
-    function roundRect(ctx2, x, y, w, h, r, fill, stroke) {
-      const rr = Math.min(r, w/2, h/2);
-      ctx2.beginPath();
-      ctx2.moveTo(x + rr, y);
-      ctx2.arcTo(x + w, y, x + w, y + h, rr);
-      ctx2.arcTo(x + w, y + h, x, y + h, rr);
-      ctx2.arcTo(x, y + h, x, y, rr);
-      ctx2.arcTo(x, y, x + w, y, rr);
-      ctx2.closePath();
-      if (fill) ctx2.fill();
-      if (stroke) ctx2.stroke();
-    }
-
-    // Minimal stylized “pose drawings” for A–E + SPACE
-    function drawPose(label) {
-      // Background + header
-      avatarDrawBackground();
-      const w = avatarCanvas.width, h = avatarCanvas.height;
-
-      avatarCtx.fillStyle = "rgba(255,255,255,0.90)";
-      avatarCtx.font = "800 28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      avatarCtx.textAlign = "left";
-      avatarCtx.textBaseline = "top";
-      avatarCtx.fillText("ASL Avatar (2D)", 18, 16);
-
-      avatarCtx.fillStyle = "rgba(255,255,255,0.75)";
-      avatarCtx.font = "600 16px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      avatarCtx.fillText("Text → Sign sequence player", 18, 52);
-
-      // big label
-      avatarCtx.textAlign = "right";
-      avatarCtx.fillStyle = "rgba(255,255,255,0.9)";
-      avatarCtx.font = "900 64px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      avatarCtx.fillText(label === "SPACE" ? "SPACE" : label, w - 18, 18);
-
-      // Drawing area
-      const areaX = 40, areaY = 110, areaW = w - 80, areaH = h - 150;
-
-      avatarCtx.fillStyle = "rgba(255,255,255,0.06)";
-      avatarCtx.strokeStyle = "rgba(255,255,255,0.16)";
-      avatarCtx.lineWidth = 2;
-      roundRect(avatarCtx, areaX, areaY, areaW, areaH, 18, true, true);
-
-      // draw simple hand-like shape (stylized)
-      avatarCtx.save();
-      avatarCtx.translate(areaX + areaW/2, areaY + areaH/2);
-
-      // palm
-      avatarCtx.fillStyle = "rgba(255,255,255,0.10)";
-      avatarCtx.strokeStyle = "rgba(255,255,255,0.30)";
-      avatarCtx.lineWidth = 3;
-
-      // Different poses are approximate placeholders (for UX timing).
-      if (label === "SPACE") {
-        avatarCtx.font = "800 28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-        avatarCtx.fillStyle = "rgba(255,255,255,0.85)";
-        avatarCtx.textAlign = "center";
-        avatarCtx.textBaseline = "middle";
-        avatarCtx.fillText("Word break", 0, -10);
-        avatarCtx.fillStyle = "rgba(255,255,255,0.65)";
-        avatarCtx.font = "600 16px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-        avatarCtx.fillText("Pause & reset", 0, 22);
-        avatarCtx.restore();
-        return;
+        await new Promise(r => setTimeout(r, 250));
       }
 
-      // palm base
-      roundRect(avatarCtx, -90, -30, 180, 220, 40, true, true);
-
-      // thumb + fingers (simple rectangles, different per letter)
-      function finger(x, y, w2, h2) {
-        avatarCtx.fillStyle = "rgba(255,255,255,0.10)";
-        avatarCtx.strokeStyle = "rgba(255,255,255,0.28)";
-        roundRect(avatarCtx, x, y, w2, h2, 18, true, true);
-      }
-
-      if (label === "A") {
-        // fist: short fingers
-        finger(-75, -10, 45, 80);
-        finger(-25, -10, 45, 80);
-        finger(25, -10, 45, 80);
-        // thumb on side
-        finger(70, 60, 40, 90);
-      } else if (label === "B") {
-        // open hand: tall fingers
-        finger(-75, -170, 45, 160);
-        finger(-25, -180, 45, 170);
-        finger(25, -170, 45, 160);
-        finger(75, -150, 40, 140);
-        // thumb folded
-        finger(-95, 80, 80, 50);
-      } else if (label === "C") {
-        // C curve: indicate with arc
-        avatarCtx.beginPath();
-        avatarCtx.strokeStyle = "rgba(255,255,255,0.40)";
-        avatarCtx.lineWidth = 10;
-        avatarCtx.arc(0, 40, 120, -0.35*Math.PI, 0.35*Math.PI, false);
-        avatarCtx.stroke();
-        avatarCtx.lineWidth = 3;
-      } else if (label === "D") {
-        // index up
-        finger(-20, -200, 55, 190);
-        finger(-75, -10, 45, 80);
-        finger(35, -10, 45, 80);
-        // thumb
-        finger(80, 70, 35, 80);
-      } else if (label === "E") {
-        // curled fingers
-        finger(-75, -40, 45, 100);
-        finger(-25, -50, 45, 110);
-        finger(25, -40, 45, 100);
-        finger(75, -25, 40, 85);
-      } else {
-        // fallback for all other letters: card
-        avatarCtx.restore();
-        drawCard(label, "Letter card (pose coming in 3D VRM)");
-        return;
-      }
-
-      // caption
-      avatarCtx.fillStyle = "rgba(255,255,255,0.70)";
-      avatarCtx.font = "600 16px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      avatarCtx.textAlign = "center";
-      avatarCtx.textBaseline = "top";
-      avatarCtx.fillText("Stylized pose placeholder (A–E). 3D rig comes next.", 0, 210);
-
-      avatarCtx.restore();
+      avatarIsPlaying = false;
+      avatarMode.textContent = "IDLE";
+      avatarNow.textContent = "—";
+      avatarQueue.textContent = "—";
     }
 
-    // Player state
-    let avatarQueue = [];
-    let avatarIndex = 0;
-    let avatarTimer = null;
-    let avatarIsPaused = false;
+    avatarPlayBtn.addEventListener("click", async () => {
+      const tokens = tokenizeTextToQueue(avatarInput.value);
+      if (tokens.length === 0) return;
 
-    function avatarUpdateKpis() {
-      avatarQueueKpi.textContent = String(avatarQueue.length);
-      avatarNowEl.textContent = avatarQueue.length ? `${avatarQueue[Math.min(avatarIndex, avatarQueue.length-1)]}` : "—";
-    }
-
-    function avatarStop() {
-      if (avatarTimer) clearTimeout(avatarTimer);
-      avatarTimer = null;
-      avatarIsPaused = false;
-      avatarIndex = 0;
-      avatarUpdateKpis();
-      avatarPlayBtn.disabled = false;
-      avatarPauseBtn.disabled = true;
-      avatarStopBtn.disabled = true;
-      drawPose("SPACE");
-      avatarNowEl.textContent = "—";
-    }
-
-    function avatarPauseToggle() {
-      if (!avatarQueue.length) return;
-      avatarIsPaused = !avatarIsPaused;
-      avatarPauseBtn.textContent = avatarIsPaused ? "Resume" : "Pause";
-      if (!avatarIsPaused) avatarTick(); // resume
-    }
-
-    function avatarTick() {
-      if (avatarIsPaused) return;
-      if (avatarIndex >= avatarQueue.length) {
-        avatarStop();
-        return;
-      }
-
-      const symbol = avatarQueue[avatarIndex];
-      drawPose(symbol);
-
-      avatarNowEl.textContent = symbol;
-      avatarUpdateKpis();
-
-      const speed = Math.max(120, Math.min(2500, parseInt(avatarSpeedMsEl.value || "550", 10)));
-      const wordPause = Math.max(0, Math.min(5000, parseInt(avatarWordPauseMsEl.value || "500", 10)));
-
-      const delay = (symbol === "SPACE") ? Math.max(speed, wordPause) : speed;
-
-      avatarIndex++;
-      avatarTimer = setTimeout(avatarTick, delay);
-    }
-
-    function avatarPlay() {
-      avatarQueue = sanitizeToAvatarQueue(avatarTextEl.value);
-      avatarIndex = 0;
-      avatarIsPaused = false;
-      avatarPauseBtn.textContent = "Pause";
-      avatarUpdateKpis();
-
-      if (!avatarQueue.length) {
-        alert("No playable characters. Use letters A–Z and spaces.");
-        return;
-      }
-
-      avatarPlayBtn.disabled = true;
-      avatarPauseBtn.disabled = false;
-      avatarStopBtn.disabled = false;
-
-      avatarTick();
-    }
-
-    avatarPlayBtn.addEventListener("click", avatarPlay);
-    avatarPauseBtn.addEventListener("click", avatarPauseToggle);
-    avatarStopBtn.addEventListener("click", avatarStop);
-
-    avatarUseTranscriptBtn.addEventListener("click", () => {
-      avatarTextEl.value = (transcriptEl.value || "").toUpperCase();
-      setActiveTab("avatar");
-    });
-    avatarClearTextBtn.addEventListener("click", () => {
-      avatarTextEl.value = "";
-      avatarStop();
+      avatarQueueItems = tokens;
+      avatarQueue.textContent = avatarQueueItems.join(" ");
+      avatarLog.textContent = "Playing…";
+      avatarIsPlaying = true;
+      avatarLoop();
     });
 
-    // Send transcript button inside Demo tab
-    sendTranscriptToAvatarBtn.addEventListener("click", () => {
-      avatarTextEl.value = (transcriptEl.value || "").toUpperCase();
-      setActiveTab("avatar");
+    avatarStopBtn.addEventListener("click", () => {
+      avatarIsPlaying = false;
+      avatarQueueItems = [];
+      avatarQueue.textContent = "—";
+      avatarMode.textContent = "STOPPED";
+      avatarNow.textContent = "—";
+      try { avatarVideo.pause(); } catch {}
+    });
+
+    // =======================
+    // Words Recorder (WebM)
+    // =======================
+    let wordsStream = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let lastBlob = null;
+
+    function safeWordName() { return normalizeToken(wordsRecWord.value || ""); }
+
+    async function startWordsCamera() {
+      wordsStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720 },
+        audio: false
+      });
+      wordsRecVideo.srcObject = wordsStream;
+      await wordsRecVideo.play();
+      wordsRecStartBtn.disabled = true;
+      wordsRecStopBtn.disabled = false;
+      wordsRecRecordBtn.disabled = false;
+      wordsRecStatus.textContent = "Camera running. Enter WORD name and click Record.";
+    }
+
+    function stopWordsCamera() {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        try { mediaRecorder.stop(); } catch {}
+      }
+      if (wordsStream) {
+        wordsStream.getTracks().forEach(t => t.stop());
+        wordsStream = null;
+      }
+      wordsRecVideo.srcObject = null;
+      wordsRecStartBtn.disabled = false;
+      wordsRecStopBtn.disabled = true;
+      wordsRecRecordBtn.disabled = true;
+      wordsRecStatus.textContent = "Camera stopped.";
+    }
+
+    function downloadBlobAsFile(blob, filename) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function pickMimeType() {
+      const candidates = [
+        "video/webm;codecs=vp9",
+        "video/webm;codecs=vp8",
+        "video/webm"
+      ];
+      for (const c of candidates) {
+        if (MediaRecorder.isTypeSupported(c)) return c;
+      }
+      return "";
+    }
+
+    async function recordWord() {
+      const w = safeWordName();
+      if (!w) { alert("Enter WORD name like HELLO or THANK_YOU"); return; }
+      const secs = Math.max(1, Math.min(6, parseInt(wordsRecSeconds.value || "2", 10)));
+
+      recordedChunks = [];
+      lastBlob = null;
+      wordsRecDownloadBtn.disabled = true;
+
+      const mimeType = pickMimeType();
+      mediaRecorder = new MediaRecorder(wordsStream, mimeType ? { mimeType } : undefined);
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "video/webm" });
+        lastBlob = blob;
+
+        wordsRecPreview.src = URL.createObjectURL(blob);
+        wordsRecPreview.play().catch(()=>{});
+
+        wordsRecStatus.textContent = `Recorded ${w}.webm. Upload to assets/asl/words/${w}.webm`;
+        wordsRecDownloadBtn.disabled = false;
+      };
+
+      mediaRecorder.start();
+      wordsRecStatus.textContent = `Recording ${w} for ${secs}s… (hands visible, no talking, steady camera)`;
+
+      setTimeout(() => {
+        try { mediaRecorder.stop(); } catch {}
+      }, secs * 1000);
+    }
+
+    wordsRecStartBtn.addEventListener("click", () => startWordsCamera().catch(err => {
+      console.error(err);
+      alert("Could not start camera. Use Chrome/Edge and allow camera permission.");
+    }));
+    wordsRecStopBtn.addEventListener("click", stopWordsCamera);
+    wordsRecRecordBtn.addEventListener("click", () => {
+      if (!wordsStream) return;
+      recordWord().catch(console.error);
+    });
+    wordsRecDownloadBtn.addEventListener("click", () => {
+      const w = safeWordName();
+      if (!lastBlob || !w) return;
+      downloadBlobAsFile(lastBlob, `${w}.webm`);
     });
 
     // -----------------------
@@ -1747,12 +1706,9 @@
     stableLabelEl.textContent = "—";
     confEl.textContent = "—";
     handInfoEl.textContent = "—";
-
-    // Avatar initial draw
-    drawPose("SPACE");
-
+    avatarMode.textContent = "IDLE";
+    avatarQueue.textContent = "—";
+    avatarNow.textContent = "—";
   </script>
 </body>
 </html>
-
-
