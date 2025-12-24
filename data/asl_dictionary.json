@@ -1,0 +1,17 @@
+{
+  "phrases": [
+    { "key": "GOOD MORNING", "file": "GOOD_MORNING.mp4" },
+    { "key": "THANK YOU", "file": "THANK_YOU.mp4" },
+    { "key": "SEE YOU", "file": "SEE_YOU.mp4" }
+  ],
+  "words": {
+    "HELLO": "HELLO.mp4",
+    "YES": "YES.mp4",
+    "NO": "NO.mp4",
+    "PLEASE": "PLEASE.mp4",
+    "HELP": "HELP.mp4",
+    "WATER": "WATER.mp4",
+    "EAT": "EAT.mp4",
+    "STOP": "STOP.mp4"
+  }
+}
