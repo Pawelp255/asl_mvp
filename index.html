@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ASL MVP (Profiles + Demo + Recorder)</title>
+  <title>ASL MVP (Profiles + Recorder + Avatar 2D)</title>
   <style>
     :root { --bg:#fff; --fg:#111; --muted:#555; --border:#ddd; --soft:#fafafa; --danger:#b00020; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; color:var(--fg); background:var(--bg); }
@@ -12,7 +12,7 @@
     .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
     .panel { border:1px solid var(--border); border-radius:12px; padding:12px; background:#fff; flex: 1 1 520px; min-width: 300px; }
     video, canvas { width: 520px; max-width:100%; border-radius:12px; background:#000; }
-    .big { font-size: 22px; font-weight: 700; }
+    .big { font-size: 22px; font-weight: 800; }
     button, select, input { padding:10px 12px; border-radius:10px; border:1px solid #ccc; background:#fff; cursor:pointer; }
     button:disabled { opacity:0.5; cursor:not-allowed; }
     button:active { transform: translateY(1px); }
@@ -50,27 +50,31 @@
       padding: 14px;
       box-shadow: 0 12px 40px rgba(0,0,0,0.3);
     }
-    .modalTitle { font-weight:800; font-size:18px; margin-bottom:6px; }
+    .modalTitle { font-weight:900; font-size:18px; margin-bottom:6px; }
     .modalActions { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
     .btnPrimary { background:#111; color:#fff; border-color:#111; }
     .btnGhost { background:#fff; }
     .btnDanger { background: var(--danger); color:#fff; border-color: var(--danger); }
-
     .kpi { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .kpi .badge { background:#f6f6f6; }
+
+    /* Avatar 2D UI */
+    .avatarCanvas { width: 520px; max-width: 100%; height: auto; border-radius: 12px; border:1px solid var(--border); background:#0b0b0b; }
+    .hint { font-size:12px; color: var(--muted); }
   </style>
 </head>
 <body>
-  <h1>ASL MVP (Local Profiles + Demo + Recorder)</h1>
+  <h1>ASL MVP (Local Profiles + Recorder + Avatar 2D)</h1>
   <div class="muted">
-    Local inference (no cloud). MediaPipe HandLandmarker + TF.js kNN for demo.
-    Recorder uses <b>stability-based auto-capture</b>. Includes <b>Capture ON/OFF (test-only)</b>.
+    Local inference (no cloud). MediaPipe HandLandmarker + TF.js kNN for Demo.
+    Recorder uses <b>stability-based auto-capture</b>. New: <b>Avatar 2D</b> plays a sign sequence from text (fast to test).
   </div>
 
   <div class="tabs">
     <button class="tabBtn active" id="tabDemoBtn">Demo</button>
     <button class="tabBtn" id="tabRecorderBtn">Recorder</button>
     <button class="tabBtn" id="tabProfilesBtn">Profiles</button>
+    <button class="tabBtn" id="tabAvatarBtn">Avatar</button>
   </div>
 
   <div class="inline" style="margin: 6px 0 14px 0;">
@@ -115,7 +119,7 @@
         </div>
 
         <div class="hr"></div>
-        <div class="mono">Demo = stabilization + debounce. Good for live presentation/testing.</div>
+        <div class="mono">Demo: kNN recognition + stabilization + debounce. Use for testing/presentation.</div>
       </div>
 
       <div class="panel">
@@ -160,8 +164,13 @@
         <div class="muted">Transcript</div>
         <textarea id="transcript" placeholder="Letters will appear here..."></textarea>
 
+        <div class="inline" style="margin-top:10px;">
+          <button id="sendTranscriptToAvatarBtn">Send transcript → Avatar</button>
+          <span class="hint">Tip: Use SPACE / BACKSPACE too.</span>
+        </div>
+
         <div class="mono" style="margin-top:8px;">
-          Notes: Detects up to 2 hands; classifier uses the largest hand (dominant by bbox area).
+          Notes: Detects up to 2 hands; classification uses the largest hand (dominant by bbox area).
         </div>
       </div>
     </div>
@@ -230,8 +239,8 @@
 
         <div class="hr"></div>
         <div class="mono">
-          Recorder auto-adds samples only when <b>Capture enabled</b> is ON.
-          When OFF, it runs <b>test-only</b> (raw/stable/conf) without writing samples.
+          Recorder: when Capture enabled is ON, it auto-adds samples for the selected target letter.
+          When OFF, it runs <b>test-only</b> preview (raw/stable/conf) and does NOT add samples.
         </div>
       </div>
 
@@ -258,7 +267,7 @@
         </div>
 
         <div class="mono" style="margin-top:8px;">
-          Tip: keep a Recording profile for data collection and a Demo profile for presentation.
+          Tip: Keep Friend profile in Recording mode. Use Boss profile in Demo mode.
         </div>
       </div>
     </div>
@@ -301,7 +310,61 @@
       <div class="hr"></div>
 
       <div class="mono">
-        Profiles are per-device/per-browser. Move datasets between devices using Export/Import JSON.
+        Profiles are per-device/per-browser. Move datasets via Export/Import JSON.
+      </div>
+    </div>
+  </div>
+
+  <!-- AVATAR TAB (2D) -->
+  <div id="tabAvatar" class="hide">
+    <div class="row">
+      <div class="panel">
+        <div class="muted">Avatar (2D) – Text → Sign Sequence</div>
+        <div class="hr"></div>
+
+        <div class="inline">
+          <button id="avatarUseTranscriptBtn">Use transcript from Demo</button>
+          <button id="avatarClearTextBtn">Clear</button>
+          <span class="badge">Queue: <b id="avatarQueueKpi">0</b></span>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div>
+            <label class="small">Speed (ms per symbol)</label>
+            <input id="avatarSpeedMs" type="number" min="120" max="2500" value="550" />
+          </div>
+          <div>
+            <label class="small">Pause between words (ms)</label>
+            <input id="avatarWordPauseMs" type="number" min="0" max="5000" value="500" />
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <label class="small">Text to play (A–Z, spaces)</label>
+        <textarea id="avatarText" placeholder="Type text like: HELLO WORLD"></textarea>
+
+        <div class="inline" style="margin-top:10px;">
+          <button id="avatarPlayBtn" class="btnPrimary">Play</button>
+          <button id="avatarPauseBtn" disabled>Pause</button>
+          <button id="avatarStopBtn" disabled>Stop</button>
+          <span class="badge">Now: <b id="avatarNow">—</b></span>
+        </div>
+
+        <div class="hr"></div>
+        <div class="mono">
+          This 2D avatar is a fast placeholder. It animates a “sign pose card” per letter.
+          Next step (B): replace this with a real 3D humanoid (VRM) while keeping the same queue/player logic.
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="muted">Avatar View</div>
+        <div class="hr"></div>
+        <canvas id="avatarCanvas" class="avatarCanvas" width="920" height="520"></canvas>
+        <div class="mono" style="margin-top:8px;">
+          Pose coverage: special stylized drawings for A–E + SPACE. Other letters show a clean letter-card (still useful for timing/UX tests).
+        </div>
       </div>
     </div>
   </div>
@@ -310,7 +373,7 @@
   <div class="modalOverlay" id="profileModal">
     <div class="modal">
       <div class="modalTitle">Switch / Create Profile</div>
-      <div class="muted">Mode decides workflow: Recording or Demo.</div>
+      <div class="muted">Mode decides intended workflow: Recording or Demo.</div>
       <div class="hr"></div>
 
       <div class="inline">
@@ -363,33 +426,37 @@
     import { FilesetResolver, HandLandmarker, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
     // -----------------------
-    // Tabs + stopping cameras when switching
+    // Tabs
     // -----------------------
     const tabDemoBtn = document.getElementById("tabDemoBtn");
     const tabRecorderBtn = document.getElementById("tabRecorderBtn");
     const tabProfilesBtn = document.getElementById("tabProfilesBtn");
+    const tabAvatarBtn = document.getElementById("tabAvatarBtn");
+
     const tabDemo = document.getElementById("tabDemo");
     const tabRecorder = document.getElementById("tabRecorder");
     const tabProfiles = document.getElementById("tabProfiles");
+    const tabAvatar = document.getElementById("tabAvatar");
 
     function setActiveTab(name) {
       tabDemoBtn.classList.toggle("active", name === "demo");
       tabRecorderBtn.classList.toggle("active", name === "recorder");
       tabProfilesBtn.classList.toggle("active", name === "profiles");
+      tabAvatarBtn.classList.toggle("active", name === "avatar");
+
       tabDemo.classList.toggle("hide", name !== "demo");
       tabRecorder.classList.toggle("hide", name !== "recorder");
       tabProfiles.classList.toggle("hide", name !== "profiles");
-
-      // Optional safety: stop the camera loops if user leaves that tab
-      if (name !== "demo") demoStop();
-      if (name !== "recorder") recorderStop();
+      tabAvatar.classList.toggle("hide", name !== "avatar");
     }
+
     tabDemoBtn.addEventListener("click", () => setActiveTab("demo"));
     tabRecorderBtn.addEventListener("click", () => setActiveTab("recorder"));
     tabProfilesBtn.addEventListener("click", () => setActiveTab("profiles"));
+    tabAvatarBtn.addEventListener("click", () => setActiveTab("avatar"));
 
     // -----------------------
-    // Top status
+    // Top bar
     // -----------------------
     const activeProfileNameEl = document.getElementById("activeProfileName");
     const activeProfileModeEl = document.getElementById("activeProfileMode");
@@ -403,24 +470,31 @@
     const videoEl = document.getElementById("video");
     const canvasEl = document.getElementById("canvas");
     const ctx = canvasEl.getContext("2d");
+
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
     const clearTextBtn = document.getElementById("clearTextBtn");
+
     const stableLabelEl = document.getElementById("stableLabel");
     const rawLabelEl = document.getElementById("rawLabel");
     const confEl = document.getElementById("conf");
     const handInfoEl = document.getElementById("handInfo");
+
     const transcriptEl = document.getElementById("transcript");
+
     const aslLabelEl = document.getElementById("aslLabel");
     const addSampleBtn = document.getElementById("addSampleBtn");
     const clearSamplesBtn = document.getElementById("clearSamplesBtn");
     const sampleCountEl = document.getElementById("sampleCount");
     const exportBtn = document.getElementById("exportBtn");
     const importInput = document.getElementById("importInput");
+
     const stabWindowEl = document.getElementById("stabWindow");
     const stabMajorityEl = document.getElementById("stabMajority");
     const minConfEl = document.getElementById("minConf");
     const emitDebounceEl = document.getElementById("emitDebounce");
+
+    const sendTranscriptToAvatarBtn = document.getElementById("sendTranscriptToAvatarBtn");
 
     // -----------------------
     // Recorder refs
@@ -428,20 +502,25 @@
     const videoRec = document.getElementById("videoRec");
     const canvasRec = document.getElementById("canvasRec");
     const ctxRec = canvasRec.getContext("2d");
+
     const recStartBtn = document.getElementById("recStartBtn");
     const recStopBtn = document.getElementById("recStopBtn");
     const recResetLetterBtn = document.getElementById("recResetLetterBtn");
+
     const recTargetLabelEl = document.getElementById("recTargetLabel");
     const recProgressEl = document.getElementById("recProgress");
     const recAutoStateEl = document.getElementById("recAutoState");
     const recMotionEl = document.getElementById("recMotion");
+
     const recPresetEl = document.getElementById("recPreset");
     const recGoalEl = document.getElementById("recGoal");
     const recHoldMsEl = document.getElementById("recHoldMs");
     const recCooldownMsEl = document.getElementById("recCooldownMs");
     const recStabThreshEl = document.getElementById("recStabThresh");
+
     const recPrevBtn = document.getElementById("recPrevBtn");
     const recNextBtn = document.getElementById("recNextBtn");
+
     const recExportBtn = document.getElementById("recExportBtn");
     const recImportInput = document.getElementById("recImportInput");
 
@@ -475,10 +554,29 @@
     const profileModalCloseBtn = document.getElementById("profileModalCloseBtn");
 
     // -----------------------
-    // kNN + MediaPipe
+    // Avatar 2D refs
+    // -----------------------
+    const avatarTextEl = document.getElementById("avatarText");
+    const avatarCanvas = document.getElementById("avatarCanvas");
+    const avatarCtx = avatarCanvas.getContext("2d");
+    const avatarPlayBtn = document.getElementById("avatarPlayBtn");
+    const avatarPauseBtn = document.getElementById("avatarPauseBtn");
+    const avatarStopBtn = document.getElementById("avatarStopBtn");
+    const avatarNowEl = document.getElementById("avatarNow");
+    const avatarSpeedMsEl = document.getElementById("avatarSpeedMs");
+    const avatarWordPauseMsEl = document.getElementById("avatarWordPauseMs");
+    const avatarUseTranscriptBtn = document.getElementById("avatarUseTranscriptBtn");
+    const avatarClearTextBtn = document.getElementById("avatarClearTextBtn");
+    const avatarQueueKpi = document.getElementById("avatarQueueKpi");
+
+    // -----------------------
+    // kNN
     // -----------------------
     const knn = knnClassifier.create();
 
+    // -----------------------
+    // MediaPipe
+    // -----------------------
     let handLandmarker = null;
     let drawingDemo = null;
     let drawingRec = null;
@@ -494,8 +592,8 @@
     // -----------------------
     // Profiles (LocalStorage)
     // -----------------------
-    const LS_KEY = "asl_profiles_v3";
-    const LS_ACTIVE = "asl_active_profile_v3";
+    const LS_KEY = "asl_profiles_v2";
+    const LS_ACTIVE = "asl_active_profile_v2";
 
     function loadProfiles() {
       try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
@@ -577,16 +675,10 @@
       const profiles = loadProfiles();
       if (!profiles[name]) return;
 
-      // stop cameras before switching
-      demoStop();
-      recorderStop();
-
-      // persist previous
       persistActiveProfileDataset();
 
       localStorage.setItem(LS_ACTIVE, name);
 
-      // load dataset
       knn.clearAllClasses();
       if (profiles[name].datasetJSON) {
         try { knn.setClassifierDataset(jsonToDataset(profiles[name].datasetJSON)); }
@@ -597,7 +689,6 @@
       sampleCountEl.textContent = knn.getNumExamples();
       activeSamplesKpi.textContent = knn.getNumExamples();
 
-      // switch tab based on mode
       if (profiles[name].mode === "recording") setActiveTab("recorder");
       else setActiveTab("demo");
 
@@ -618,13 +709,8 @@
     function deleteProfile(name) {
       const profiles = loadProfiles();
       if (!profiles[name]) return;
-
-      demoStop();
-      recorderStop();
-
       delete profiles[name];
       saveProfiles(profiles);
-
       const remaining = Object.keys(profiles);
       if (getActiveProfileName() === name) localStorage.setItem(LS_ACTIVE, remaining[0] || "");
       refreshProfileUI();
@@ -687,7 +773,6 @@
       const h = Math.max(0, maxY - minY);
       return w * h;
     }
-
     function pickDominantHandIndex(result) {
       const lms = result.landmarks || [];
       if (lms.length === 0) return -1;
@@ -699,7 +784,6 @@
       }
       return bestIdx;
     }
-
     function handednessLabel(result, idx) {
       try {
         const h = result.handedness?.[idx]?.[0];
@@ -751,18 +835,15 @@
       if (knn.getNumExamples() <= 0) return { label: null, conf: 0 };
       const vec = landmarksToNormalizedVector(lm);
       const tensor = tf.tensor(vec, [1, vec.length]);
-      try {
-        const pred = await knn.predictClass(tensor, 5);
-        const label = pred.label;
-        const conf = (pred.confidences && pred.confidences[label]) ? pred.confidences[label] : 0;
-        return { label, conf };
-      } finally {
-        tensor.dispose();
-      }
+      const pred = await knn.predictClass(tensor, 5);
+      tensor.dispose?.();
+      const label = pred.label;
+      const conf = (pred.confidences && pred.confidences[label]) ? pred.confidences[label] : 0;
+      return { label, conf };
     }
 
     // -----------------------
-    // Demo stabilization + debounce
+    // Demo stabilization
     // -----------------------
     let predHistory = [];
     let lastEmitted = { label: null, t: 0 };
@@ -772,7 +853,6 @@
       predHistory.push({ label, conf, t: Date.now() });
       if (predHistory.length > windowN) predHistory.shift();
     }
-
     function getStablePrediction() {
       if (predHistory.length === 0) return { label: null, conf: 0, ratio: 0 };
 
@@ -807,7 +887,6 @@
       if (!label) return;
       const now = Date.now();
       const debounceMs = Math.max(150, Math.min(4000, parseInt(emitDebounceEl.value || "900", 10)));
-
       if (lastEmitted.label === label && (now - lastEmitted.t) < (debounceMs + 250)) return;
       if ((now - lastEmitted.t) < debounceMs) return;
 
@@ -823,7 +902,6 @@
     // -----------------------
     async function demoStep() {
       if (!handLandmarker) return;
-
       const now = performance.now();
       const result = handLandmarker.detectForVideo(videoEl, now);
       drawHands(videoEl, canvasEl, ctx, drawingDemo, result);
@@ -851,9 +929,7 @@
           confEl.textContent = pred.conf.toFixed(2);
           addPrediction(pred.label, pred.conf);
           const stable = getStablePrediction();
-          stableLabelEl.textContent = stable.label
-            ? `${stable.label} (ratio ${stable.ratio.toFixed(2)})`
-            : `— (ratio ${stable.ratio.toFixed(2)})`;
+          stableLabelEl.textContent = stable.label ? `${stable.label} (ratio ${stable.ratio.toFixed(2)})` : `— (ratio ${stable.ratio.toFixed(2)})`;
           emitIfStable(stable.label);
         }
       }
@@ -862,17 +938,11 @@
 
     async function demoStart() {
       if (rafDemo) return;
-
-      recorderStop(); // prevent two cameras at once
-      setActiveTab("demo");
-
       setStatus("Starting…");
       if (!handLandmarker) await initHandLandmarker();
-
       streamDemo = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
       videoEl.srcObject = streamDemo;
       await videoEl.play();
-
       setStatus("Running");
       startBtn.disabled = true;
       stopBtn.disabled = false;
@@ -884,26 +954,22 @@
       rafDemo = null;
       if (streamDemo) { streamDemo.getTracks().forEach(t => t.stop()); streamDemo = null; }
       videoEl.srcObject = null;
-
+      setStatus("Idle");
       startBtn.disabled = false;
       stopBtn.disabled = true;
-
       predHistory = [];
       lastEmitted = { label: null, t: 0 };
       lastDominantLandmarks = null;
-
       rawLabelEl.textContent = "—";
       stableLabelEl.textContent = "—";
       confEl.textContent = "—";
       handInfoEl.textContent = "—";
-
-      if (statusEl.textContent === "Running") setStatus("Idle");
     }
 
     startBtn.addEventListener("click", () => demoStart().catch(err => {
       console.error(err);
       setStatus("Error");
-      alert("Could not start. Use Chrome/Edge and run on a real server (GitHub Pages or http://localhost). Check camera permissions.");
+      alert("Could not start. Use Chrome/Edge and run via http(s) (not file://). Check camera permissions.");
       demoStop();
     }));
     stopBtn.addEventListener("click", demoStop);
@@ -919,15 +985,11 @@
       const label = aslLabelEl.value;
       const vec = landmarksToNormalizedVector(lastDominantLandmarks);
       const tensor = tf.tensor(vec, [1, vec.length]);
-      try {
-        knn.addExample(tensor, label);
-      } finally {
-        tensor.dispose();
-      }
+      knn.addExample(tensor, label);
+      tensor.dispose?.();
       sampleCountEl.textContent = knn.getNumExamples();
       activeSamplesKpi.textContent = knn.getNumExamples();
       persistActiveProfileDataset();
-      updateRecorderHeader();
     });
 
     clearSamplesBtn.addEventListener("click", () => {
@@ -963,7 +1025,6 @@
       const text = await file.text();
       const obj = JSON.parse(text);
       const dsObj = obj.dataset ? obj.dataset : obj;
-
       try {
         knn.clearAllClasses();
         knn.setClassifierDataset(jsonToDataset(dsObj));
@@ -975,9 +1036,8 @@
       } catch (err) {
         console.error(err);
         alert("Import failed. File format not recognized.");
-      } finally {
-        importInput.value = "";
       }
+      importInput.value = "";
     });
 
     // -----------------------
@@ -989,8 +1049,8 @@
     let recLastSampleAt = 0;
     let recStableSince = 0;
     let recPrevVec = null;
+    let pendingAdvance = null;
 
-    // test stabilization (fixed)
     let recPredHistory = [];
     function recAddPrediction(label, conf) {
       const windowN = 12;
@@ -1068,26 +1128,41 @@
 
     function showAdvanceOverlay(fromLabel, toLabel) {
       const goal = Math.max(5, Math.min(200, parseInt(recGoalEl.value || "30", 10)));
+      pendingAdvance = { fromLabel, toLabel };
       advanceMsg.textContent = `${fromLabel} complete (${goal}/${goal}). Next: ${toLabel}. Change the sign, then press Continue.`;
       advanceOverlay.style.display = "flex";
     }
     function hideAdvanceOverlay() {
       advanceOverlay.style.display = "none";
+      pendingAdvance = null;
     }
+    advanceStayBtn.addEventListener("click", () => hideAdvanceOverlay());
+    advanceContinueBtn.addEventListener("click", () => {
+      if (!pendingAdvance) return;
+      recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
+      recStableSince = 0; recPrevVec = null;
+      recPredHistory = [];
+      recTestRawEl.textContent = "—";
+      recTestStableEl.textContent = "—";
+      recTestConfEl.textContent = "—";
+      hideAdvanceOverlay();
+      updateRecorderHeader();
+      recIsRunning = true;
+      recStartBtn.disabled = true; recStopBtn.disabled = false;
+      updateRecorderHeader();
+    });
 
     function maybeAutoAdvanceIfDone() {
       const label = getRecTargetLabel();
       const goal = Math.max(5, Math.min(200, parseInt(recGoalEl.value || "30", 10)));
       const counts = getDatasetCountsFromKnn();
       const n = counts[label] || 0;
-
       if (n >= goal && recLabelIndex < LABELS.length - 1) {
-        // stop recorder and ask user to confirm next letter
-        recIsRunning = false;
-        recStartBtn.disabled = false;
-        recStopBtn.disabled = true;
-        updateRecorderHeader();
-
+        if (recIsRunning) {
+          recIsRunning = false;
+          recStartBtn.disabled = false; recStopBtn.disabled = true;
+          updateRecorderHeader();
+        }
         const nextLabel = LABELS[recLabelIndex + 1];
         showAdvanceOverlay(label, nextLabel);
       }
@@ -1096,11 +1171,8 @@
     function addRecorderSample(label, lm) {
       const vec = landmarksToNormalizedVector(lm);
       const tensor = tf.tensor(vec, [1, vec.length]);
-      try {
-        knn.addExample(tensor, label);
-      } finally {
-        tensor.dispose();
-      }
+      knn.addExample(tensor, label);
+      tensor.dispose?.();
       sampleCountEl.textContent = knn.getNumExamples();
       activeSamplesKpi.textContent = knn.getNumExamples();
       persistActiveProfileDataset();
@@ -1111,20 +1183,16 @@
       const label = getRecTargetLabel();
       const ds = knn.getClassifierDataset();
       if (!ds[label]) return;
-
       const newDS = {};
       for (const k of Object.keys(ds)) if (k !== label) newDS[k] = ds[k];
-
       knn.clearAllClasses();
       knn.setClassifierDataset(newDS);
-
       persistActiveProfileDataset();
       sampleCountEl.textContent = knn.getNumExamples();
       activeSamplesKpi.textContent = knn.getNumExamples();
       updateRecorderHeader();
     }
 
-    // Recorder loop: throttle ~15fps
     let recLastFrameTs = 0;
 
     async function recorderStep(ts) {
@@ -1169,7 +1237,7 @@
       recPrevVec = vec;
       recMotionEl.textContent = isFinite(vecDelta) ? vecDelta.toFixed(3) : "—";
 
-      // Test-only preview (raw/stable/conf) always available
+      // Test-only preview
       if (knn.getNumExamples() > 0) {
         const pred = await knnPredict(lastRecDominantLandmarks);
         if (pred.label) {
@@ -1189,7 +1257,7 @@
         recTestConfEl.textContent = "—";
       }
 
-      // Capture only if running AND enabled
+      // Capture branch
       if (recIsRunning && lastRecDominantLandmarks && recCaptureEnabledEl.checked) {
         const holdMs = Math.max(100, Math.min(3000, parseInt(recHoldMsEl.value || "450", 10)));
         const cooldownMs = Math.max(50, Math.min(3000, parseInt(recCooldownMsEl.value || "220", 10)));
@@ -1203,7 +1271,6 @@
         } else {
           if (!recStableSince) recStableSince = nowMs;
           const held = nowMs - recStableSince;
-
           if (held >= holdMs && (nowMs - recLastSampleAt) >= cooldownMs) {
             addRecorderSample(getRecTargetLabel(), lastRecDominantLandmarks);
             recLastSampleAt = nowMs;
@@ -1222,12 +1289,9 @@
       const profiles = loadProfiles();
       const active = getActiveProfileName();
       if (profiles[active]?.mode !== "recording") {
-        alert("Active profile is not in Recording mode. Switch profile or change mode in Profiles.");
+        alert("Active profile is not in Recording mode. Switch profile or set mode in Profiles.");
         return;
       }
-
-      demoStop(); // prevent two cameras at once
-      setActiveTab("recorder");
 
       setStatus("Starting…");
       if (!handLandmarker) await initHandLandmarker();
@@ -1247,26 +1311,14 @@
     }
 
     function recorderStop() {
-      // do not spam-stop if already stopped
-      if (!rafRec && !streamRec) {
-        recIsRunning = false;
-        recStartBtn.disabled = false;
-        recStopBtn.disabled = true;
-        updateRecorderHeader();
-        return;
-      }
-
       recIsRunning = false;
-
       if (rafRec) cancelAnimationFrame(rafRec);
       rafRec = null;
-
       if (streamRec) { streamRec.getTracks().forEach(t => t.stop()); streamRec = null; }
       videoRec.srcObject = null;
 
       recStartBtn.disabled = false;
       recStopBtn.disabled = true;
-
       recStableSince = 0;
       recPrevVec = null;
       recMotionEl.textContent = "—";
@@ -1277,13 +1329,13 @@
       recTestConfEl.textContent = "—";
 
       updateRecorderHeader();
-      if (statusEl.textContent === "Running") setStatus("Idle");
+      setStatus("Idle");
     }
 
     recStartBtn.addEventListener("click", () => recorderStart().catch(err => {
       console.error(err);
       setStatus("Error");
-      alert("Could not start Recorder. Use Chrome/Edge and allow camera.");
+      alert("Could not start Recorder. Run via http(s) and allow camera.");
       recorderStop();
     }));
     recStopBtn.addEventListener("click", recorderStop);
@@ -1326,7 +1378,6 @@
       const text = await file.text();
       const obj = JSON.parse(text);
       const dsObj = obj.dataset ? obj.dataset : obj;
-
       try {
         knn.clearAllClasses();
         knn.setClassifierDataset(jsonToDataset(dsObj));
@@ -1338,32 +1389,8 @@
       } catch (err) {
         console.error(err);
         alert("Import failed. File format not recognized.");
-      } finally {
-        recImportInput.value = "";
       }
-    });
-
-    // Advance overlay buttons (single listeners)
-    advanceStayBtn.addEventListener("click", () => {
-      hideAdvanceOverlay();
-      // keep current letter; user can press Start again if desired
-    });
-
-    advanceContinueBtn.addEventListener("click", () => {
-      // move to next letter
-      if (recLabelIndex < LABELS.length - 1) recLabelIndex++;
-      recStableSince = 0; recPrevVec = null;
-      recPredHistory = [];
-      recTestRawEl.textContent = "—";
-      recTestStableEl.textContent = "—";
-      recTestConfEl.textContent = "—";
-      hideAdvanceOverlay();
-
-      // resume running state (camera still stopped at this point)
-      // user will press Start again (safer), or we can auto-resume:
-      // We'll auto-resume ONLY if video stream is still active (it isn't because we stopped),
-      // so we simply update header.
-      updateRecorderHeader();
+      recImportInput.value = "";
     });
 
     // -----------------------
@@ -1395,14 +1422,12 @@
       profileModal.style.display = "flex";
     });
     profileModalCloseBtn.addEventListener("click", () => profileModal.style.display = "none");
-
     profileModalActivateBtn.addEventListener("click", () => {
       const sel = profileModalSelect.value;
       if (!sel) return;
       profileModal.style.display = "none";
       setActiveProfile(sel);
     });
-
     profileModalCreateBtn.addEventListener("click", () => {
       const res = createProfile(profileModalNewName.value, profileModalNewMode.value);
       if (!res.ok) { alert(res.msg); return; }
@@ -1413,6 +1438,296 @@
 
     // Persist on unload
     window.addEventListener("beforeunload", () => { try { persistActiveProfileDataset(); } catch {} });
+
+    // -----------------------
+    // Avatar 2D engine (A)
+    // -----------------------
+    function sanitizeToAvatarQueue(text) {
+      const t = (text || "").toUpperCase();
+      const out = [];
+      for (const ch of t) {
+        if (ch >= "A" && ch <= "Z") out.push(ch);
+        else if (ch === " ") out.push("SPACE");
+        // ignore other symbols for now
+      }
+      return out;
+    }
+
+    function avatarDrawBackground() {
+      const w = avatarCanvas.width, h = avatarCanvas.height;
+      const g = avatarCtx.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, "#0b0b0b");
+      g.addColorStop(1, "#101214");
+      avatarCtx.fillStyle = g;
+      avatarCtx.fillRect(0, 0, w, h);
+
+      // subtle grid
+      avatarCtx.globalAlpha = 0.12;
+      avatarCtx.strokeStyle = "#ffffff";
+      avatarCtx.lineWidth = 1;
+      for (let x = 0; x < w; x += 40) {
+        avatarCtx.beginPath();
+        avatarCtx.moveTo(x, 0);
+        avatarCtx.lineTo(x, h);
+        avatarCtx.stroke();
+      }
+      for (let y = 0; y < h; y += 40) {
+        avatarCtx.beginPath();
+        avatarCtx.moveTo(0, y);
+        avatarCtx.lineTo(w, y);
+        avatarCtx.stroke();
+      }
+      avatarCtx.globalAlpha = 1.0;
+    }
+
+    function drawCard(label, subtitle) {
+      const w = avatarCanvas.width, h = avatarCanvas.height;
+      const cx = w * 0.5, cy = h * 0.5;
+
+      avatarDrawBackground();
+
+      // Card
+      const cardW = Math.min(520, w * 0.78);
+      const cardH = Math.min(340, h * 0.72);
+      const x = cx - cardW/2;
+      const y = cy - cardH/2;
+
+      avatarCtx.fillStyle = "rgba(255,255,255,0.06)";
+      avatarCtx.strokeStyle = "rgba(255,255,255,0.18)";
+      avatarCtx.lineWidth = 2;
+      roundRect(avatarCtx, x, y, cardW, cardH, 18, true, true);
+
+      // Letter
+      avatarCtx.fillStyle = "rgba(255,255,255,0.92)";
+      avatarCtx.font = "900 140px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      avatarCtx.textAlign = "center";
+      avatarCtx.textBaseline = "middle";
+      avatarCtx.fillText(label === "SPACE" ? "␠" : label, cx, cy - 20);
+
+      avatarCtx.fillStyle = "rgba(255,255,255,0.75)";
+      avatarCtx.font = "600 18px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      avatarCtx.fillText(subtitle || "ASL Pose (placeholder)", cx, cy + 110);
+    }
+
+    function roundRect(ctx2, x, y, w, h, r, fill, stroke) {
+      const rr = Math.min(r, w/2, h/2);
+      ctx2.beginPath();
+      ctx2.moveTo(x + rr, y);
+      ctx2.arcTo(x + w, y, x + w, y + h, rr);
+      ctx2.arcTo(x + w, y + h, x, y + h, rr);
+      ctx2.arcTo(x, y + h, x, y, rr);
+      ctx2.arcTo(x, y, x + w, y, rr);
+      ctx2.closePath();
+      if (fill) ctx2.fill();
+      if (stroke) ctx2.stroke();
+    }
+
+    // Minimal stylized “pose drawings” for A–E + SPACE
+    function drawPose(label) {
+      // Background + header
+      avatarDrawBackground();
+      const w = avatarCanvas.width, h = avatarCanvas.height;
+
+      avatarCtx.fillStyle = "rgba(255,255,255,0.90)";
+      avatarCtx.font = "800 28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      avatarCtx.textAlign = "left";
+      avatarCtx.textBaseline = "top";
+      avatarCtx.fillText("ASL Avatar (2D)", 18, 16);
+
+      avatarCtx.fillStyle = "rgba(255,255,255,0.75)";
+      avatarCtx.font = "600 16px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      avatarCtx.fillText("Text → Sign sequence player", 18, 52);
+
+      // big label
+      avatarCtx.textAlign = "right";
+      avatarCtx.fillStyle = "rgba(255,255,255,0.9)";
+      avatarCtx.font = "900 64px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      avatarCtx.fillText(label === "SPACE" ? "SPACE" : label, w - 18, 18);
+
+      // Drawing area
+      const areaX = 40, areaY = 110, areaW = w - 80, areaH = h - 150;
+
+      avatarCtx.fillStyle = "rgba(255,255,255,0.06)";
+      avatarCtx.strokeStyle = "rgba(255,255,255,0.16)";
+      avatarCtx.lineWidth = 2;
+      roundRect(avatarCtx, areaX, areaY, areaW, areaH, 18, true, true);
+
+      // draw simple hand-like shape (stylized)
+      avatarCtx.save();
+      avatarCtx.translate(areaX + areaW/2, areaY + areaH/2);
+
+      // palm
+      avatarCtx.fillStyle = "rgba(255,255,255,0.10)";
+      avatarCtx.strokeStyle = "rgba(255,255,255,0.30)";
+      avatarCtx.lineWidth = 3;
+
+      // Different poses are approximate placeholders (for UX timing).
+      if (label === "SPACE") {
+        avatarCtx.font = "800 28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+        avatarCtx.fillStyle = "rgba(255,255,255,0.85)";
+        avatarCtx.textAlign = "center";
+        avatarCtx.textBaseline = "middle";
+        avatarCtx.fillText("Word break", 0, -10);
+        avatarCtx.fillStyle = "rgba(255,255,255,0.65)";
+        avatarCtx.font = "600 16px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+        avatarCtx.fillText("Pause & reset", 0, 22);
+        avatarCtx.restore();
+        return;
+      }
+
+      // palm base
+      roundRect(avatarCtx, -90, -30, 180, 220, 40, true, true);
+
+      // thumb + fingers (simple rectangles, different per letter)
+      function finger(x, y, w2, h2) {
+        avatarCtx.fillStyle = "rgba(255,255,255,0.10)";
+        avatarCtx.strokeStyle = "rgba(255,255,255,0.28)";
+        roundRect(avatarCtx, x, y, w2, h2, 18, true, true);
+      }
+
+      if (label === "A") {
+        // fist: short fingers
+        finger(-75, -10, 45, 80);
+        finger(-25, -10, 45, 80);
+        finger(25, -10, 45, 80);
+        // thumb on side
+        finger(70, 60, 40, 90);
+      } else if (label === "B") {
+        // open hand: tall fingers
+        finger(-75, -170, 45, 160);
+        finger(-25, -180, 45, 170);
+        finger(25, -170, 45, 160);
+        finger(75, -150, 40, 140);
+        // thumb folded
+        finger(-95, 80, 80, 50);
+      } else if (label === "C") {
+        // C curve: indicate with arc
+        avatarCtx.beginPath();
+        avatarCtx.strokeStyle = "rgba(255,255,255,0.40)";
+        avatarCtx.lineWidth = 10;
+        avatarCtx.arc(0, 40, 120, -0.35*Math.PI, 0.35*Math.PI, false);
+        avatarCtx.stroke();
+        avatarCtx.lineWidth = 3;
+      } else if (label === "D") {
+        // index up
+        finger(-20, -200, 55, 190);
+        finger(-75, -10, 45, 80);
+        finger(35, -10, 45, 80);
+        // thumb
+        finger(80, 70, 35, 80);
+      } else if (label === "E") {
+        // curled fingers
+        finger(-75, -40, 45, 100);
+        finger(-25, -50, 45, 110);
+        finger(25, -40, 45, 100);
+        finger(75, -25, 40, 85);
+      } else {
+        // fallback for all other letters: card
+        avatarCtx.restore();
+        drawCard(label, "Letter card (pose coming in 3D VRM)");
+        return;
+      }
+
+      // caption
+      avatarCtx.fillStyle = "rgba(255,255,255,0.70)";
+      avatarCtx.font = "600 16px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      avatarCtx.textAlign = "center";
+      avatarCtx.textBaseline = "top";
+      avatarCtx.fillText("Stylized pose placeholder (A–E). 3D rig comes next.", 0, 210);
+
+      avatarCtx.restore();
+    }
+
+    // Player state
+    let avatarQueue = [];
+    let avatarIndex = 0;
+    let avatarTimer = null;
+    let avatarIsPaused = false;
+
+    function avatarUpdateKpis() {
+      avatarQueueKpi.textContent = String(avatarQueue.length);
+      avatarNowEl.textContent = avatarQueue.length ? `${avatarQueue[Math.min(avatarIndex, avatarQueue.length-1)]}` : "—";
+    }
+
+    function avatarStop() {
+      if (avatarTimer) clearTimeout(avatarTimer);
+      avatarTimer = null;
+      avatarIsPaused = false;
+      avatarIndex = 0;
+      avatarUpdateKpis();
+      avatarPlayBtn.disabled = false;
+      avatarPauseBtn.disabled = true;
+      avatarStopBtn.disabled = true;
+      drawPose("SPACE");
+      avatarNowEl.textContent = "—";
+    }
+
+    function avatarPauseToggle() {
+      if (!avatarQueue.length) return;
+      avatarIsPaused = !avatarIsPaused;
+      avatarPauseBtn.textContent = avatarIsPaused ? "Resume" : "Pause";
+      if (!avatarIsPaused) avatarTick(); // resume
+    }
+
+    function avatarTick() {
+      if (avatarIsPaused) return;
+      if (avatarIndex >= avatarQueue.length) {
+        avatarStop();
+        return;
+      }
+
+      const symbol = avatarQueue[avatarIndex];
+      drawPose(symbol);
+
+      avatarNowEl.textContent = symbol;
+      avatarUpdateKpis();
+
+      const speed = Math.max(120, Math.min(2500, parseInt(avatarSpeedMsEl.value || "550", 10)));
+      const wordPause = Math.max(0, Math.min(5000, parseInt(avatarWordPauseMsEl.value || "500", 10)));
+
+      const delay = (symbol === "SPACE") ? Math.max(speed, wordPause) : speed;
+
+      avatarIndex++;
+      avatarTimer = setTimeout(avatarTick, delay);
+    }
+
+    function avatarPlay() {
+      avatarQueue = sanitizeToAvatarQueue(avatarTextEl.value);
+      avatarIndex = 0;
+      avatarIsPaused = false;
+      avatarPauseBtn.textContent = "Pause";
+      avatarUpdateKpis();
+
+      if (!avatarQueue.length) {
+        alert("No playable characters. Use letters A–Z and spaces.");
+        return;
+      }
+
+      avatarPlayBtn.disabled = true;
+      avatarPauseBtn.disabled = false;
+      avatarStopBtn.disabled = false;
+
+      avatarTick();
+    }
+
+    avatarPlayBtn.addEventListener("click", avatarPlay);
+    avatarPauseBtn.addEventListener("click", avatarPauseToggle);
+    avatarStopBtn.addEventListener("click", avatarStop);
+
+    avatarUseTranscriptBtn.addEventListener("click", () => {
+      avatarTextEl.value = (transcriptEl.value || "").toUpperCase();
+      setActiveTab("avatar");
+    });
+    avatarClearTextBtn.addEventListener("click", () => {
+      avatarTextEl.value = "";
+      avatarStop();
+    });
+
+    // Send transcript button inside Demo tab
+    sendTranscriptToAvatarBtn.addEventListener("click", () => {
+      avatarTextEl.value = (transcriptEl.value || "").toUpperCase();
+      setActiveTab("avatar");
+    });
 
     // -----------------------
     // Boot
@@ -1428,6 +1743,11 @@
     stableLabelEl.textContent = "—";
     confEl.textContent = "—";
     handInfoEl.textContent = "—";
+
+    // Avatar initial draw
+    drawPose("SPACE");
+
   </script>
 </body>
 </html>
+
