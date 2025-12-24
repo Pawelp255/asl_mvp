@@ -3,70 +3,86 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ASL MVP (Camera + Avatar)</title>
+  <title>ASL MVP (Profiles + Demo + Recorder)</title>
   <style>
-    :root {
-      --bg:#fff; --fg:#111; --muted:#555; --border:#ddd; --soft:#fafafa;
-      --accent:#00e0ff; --accent2:#00ff7f;
-    }
+    :root { --bg:#fff; --fg:#111; --muted:#555; --border:#ddd; --soft:#fafafa; --danger:#b00020; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; color:var(--fg); background:var(--bg); }
     h1 { margin: 0 0 8px 0; }
     .muted { color: var(--muted); }
-
-    /* Tabs */
-    .tabs { display:flex; gap:10px; flex-wrap:wrap; margin: 12px 0; }
-    .tabbtn {
-      padding:10px 12px; border-radius: 10px; border:1px solid var(--border);
-      background:#fff; cursor:pointer;
-    }
-    .tabbtn.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,224,255,.12); }
-    .tabpanel { display:none; }
-    .tabpanel.active { display:block; }
-
-    /* Layout panels */
-    .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
-    .panel { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background:#fff; }
-    video, canvas { width: 520px; max-width: 100%; border-radius: 12px; background: #000; }
+    .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+    .panel { border:1px solid var(--border); border-radius:12px; padding:12px; background:#fff; flex: 1 1 520px; min-width: 300px; }
+    video, canvas { width: 520px; max-width:100%; border-radius:12px; background:#000; }
     .big { font-size: 22px; font-weight: 700; }
-    button, select, input { padding: 10px 12px; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+    button, select, input { padding:10px 12px; border-radius:10px; border:1px solid #ccc; background:#fff; cursor:pointer; }
+    button:disabled { opacity:0.5; cursor:not-allowed; }
     button:active { transform: translateY(1px); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    textarea { width: 520px; max-width: 100%; height: 120px; border-radius: 12px; padding: 10px; border: 1px solid var(--border); }
-    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--soft); }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
-    .hr { height: 1px; background: #eee; margin: 10px 0; }
-    label.small { font-size: 12px; color: var(--muted); display:block; margin: 0 0 6px 0; }
+    textarea { width:520px; max-width:100%; height:120px; border-radius:12px; padding:10px; border:1px solid var(--border); }
+    .badge { display:inline-block; padding: 4px 10px; border-radius:999px; border:1px solid var(--border); background:var(--soft); }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
+    .hr { height:1px; background:#eee; margin:10px 0; }
+    label.small { font-size:12px; color: var(--muted); display:block; margin: 0 0 6px 0; }
     .inline { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; margin: 12px 0; }
+    .tabBtn { padding:8px 10px; border-radius:10px; border:1px solid var(--border); background:var(--soft); }
+    .tabBtn.active { background:#111; color:#fff; border-color:#111; }
+    .hide { display:none !important; }
 
-    /* Avatar iframe */
-    .iframeWrap {
-      border:1px solid var(--border); border-radius:12px; overflow:hidden;
-      background:#000;
-      width: min(1100px, 100%);
-      height: 650px;
+    @media (min-width: 1100px) {
+      .row { flex-wrap: nowrap; }
+      .panel { flex: 0 0 calc(50% - 8px); }
     }
-    iframe { width:100%; height:100%; border:0; display:block; background:#000; }
-    .warn { padding:10px 12px; border-radius:12px; border:1px solid #f2c200; background:#fff7d6; color:#5c4500; margin: 10px 0; }
+
+    .modalOverlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 18px;
+    }
+    .modal {
+      width: min(580px, 100%);
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      padding: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    }
+    .modalTitle { font-weight:800; font-size:18px; margin-bottom:6px; }
+    .modalActions { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+    .btnPrimary { background:#111; color:#fff; border-color:#111; }
+    .btnGhost { background:#fff; }
+    .btnDanger { background: var(--danger); color:#fff; border-color: var(--danger); }
+
+    .kpi { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .kpi .badge { background:#f6f6f6; }
   </style>
 </head>
-
 <body>
-  <h1>ASL MVP (Camera + Avatar)</h1>
+  <h1>ASL MVP (Local Profiles + Demo + Recorder)</h1>
   <div class="muted">
-    Windows + Chrome/Edge. Local inference (no cloud). MediaPipe Tasks Vision HandLandmarker + TF.js kNN.
-    Avatar is loaded as a separate module (iframe) to avoid breaking the MVP.
+    Local inference (no cloud). MediaPipe HandLandmarker + TF.js kNN for demo.
+    Recorder uses <b>stability-based auto-capture</b>. Includes <b>Capture ON/OFF (test-only)</b>.
   </div>
 
-  <!-- Tabs -->
   <div class="tabs">
-    <button class="tabbtn active" data-tab="tab-camera">Camera MVP</button>
-    <button class="tabbtn" data-tab="tab-avatar">Avatar</button>
+    <button class="tabBtn active" id="tabDemoBtn">Demo</button>
+    <button class="tabBtn" id="tabRecorderBtn">Recorder</button>
+    <button class="tabBtn" id="tabProfilesBtn">Profiles</button>
   </div>
 
-  <!-- TAB: CAMERA MVP -->
-  <section id="tab-camera" class="tabpanel active">
-    <div class="row" style="margin-top:12px;">
+  <div class="inline" style="margin: 6px 0 14px 0;">
+    <span class="badge">Active profile: <b id="activeProfileName">—</b></span>
+    <span class="badge">Mode: <b id="activeProfileMode">—</b></span>
+    <button id="switchProfileBtn">Switch / Create Profile</button>
+    <span class="badge" id="status">Idle</span>
+  </div>
+
+  <!-- DEMO TAB -->
+  <div id="tabDemo">
+    <div class="row">
       <div class="panel">
         <div class="muted">Camera</div>
         <video id="video" playsinline autoplay muted></video>
@@ -75,7 +91,6 @@
           <button id="startBtn">Start</button>
           <button id="stopBtn" disabled>Stop</button>
           <button id="clearTextBtn">Clear text</button>
-          <span class="badge" id="status">Idle</span>
         </div>
 
         <div class="hr"></div>
@@ -100,10 +115,7 @@
         </div>
 
         <div class="hr"></div>
-
-        <div class="mono">
-          Training tip: for each letter collect 20–40 samples across different angles, distances, and lighting.
-        </div>
+        <div class="mono">Demo = stabilization + debounce. Good for live presentation/testing.</div>
       </div>
 
       <div class="panel">
@@ -149,129 +161,499 @@
         <textarea id="transcript" placeholder="Letters will appear here..."></textarea>
 
         <div class="mono" style="margin-top:8px;">
-          Notes: Detects up to 2 hands; classification uses the largest hand (dominant by bbox area).
+          Notes: Detects up to 2 hands; classifier uses the largest hand (dominant by bbox area).
         </div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- TAB: AVATAR -->
-  <section id="tab-avatar" class="tabpanel">
-    <div class="warn">
-      Avatar is loaded from <b>./avatar_engine/index.html</b>.
-      If you don’t see it, confirm the folder exists in the same repo and you are running via https/http (GitHub Pages), not file://.
+  <!-- RECORDER TAB -->
+  <div id="tabRecorder" class="hide">
+    <div class="row">
+      <div class="panel">
+        <div class="muted">Recorder Camera</div>
+        <video id="videoRec" playsinline autoplay muted></video>
+
+        <div class="inline" style="margin-top:10px;">
+          <button id="recStartBtn">Start recorder</button>
+          <button id="recStopBtn" disabled>Stop</button>
+          <button id="recResetLetterBtn">Reset current letter</button>
+        </div>
+
+        <div class="hr"></div>
+        <div class="kpi">
+          <span class="badge">Target: <b id="recTargetLabel">—</b></span>
+          <span class="badge">Progress: <b id="recProgress">0/30</b></span>
+          <span class="badge">Recorder: <b id="recAutoState">OFF</b></span>
+          <span class="badge">Motion: <b id="recMotion">—</b></span>
+        </div>
+
+        <div class="inline" style="margin-top:10px;">
+          <label class="badge" style="cursor:pointer;">
+            <input id="recCaptureEnabled" type="checkbox" checked style="margin-right:8px;">
+            Capture enabled
+          </label>
+          <span class="badge">Test raw: <b id="recTestRaw">—</b></span>
+          <span class="badge">Test stable: <b id="recTestStable">—</b></span>
+          <span class="badge">Conf: <b id="recTestConf">—</b></span>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="inline" style="margin-top:2px;">
+          <label class="small" style="margin:0;">Preset</label>
+          <select id="recPreset">
+            <option value="fast">Fast</option>
+            <option value="normal" selected>Normal</option>
+            <option value="strict">Strict</option>
+          </select>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div>
+            <label class="small">Goal per letter</label>
+            <input id="recGoal" type="number" min="5" max="200" value="30" />
+          </div>
+          <div>
+            <label class="small">Hold stable (ms)</label>
+            <input id="recHoldMs" type="number" min="100" max="3000" value="450" />
+          </div>
+          <div>
+            <label class="small">Cooldown between samples (ms)</label>
+            <input id="recCooldownMs" type="number" min="50" max="3000" value="220" />
+          </div>
+          <div>
+            <label class="small">Stability threshold</label>
+            <input id="recStabThresh" type="number" step="0.01" min="0.01" max="0.50" value="0.08" />
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <div class="mono">
+          Recorder auto-adds samples only when <b>Capture enabled</b> is ON.
+          When OFF, it runs <b>test-only</b> (raw/stable/conf) without writing samples.
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="muted">Recorder Live View</div>
+        <canvas id="canvasRec"></canvas>
+
+        <div class="hr"></div>
+
+        <div class="inline">
+          <button id="recPrevBtn">Prev</button>
+          <button id="recNextBtn">Next</button>
+          <span class="badge">Letters: A–Y (no J/Z)</span>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="inline">
+          <button id="recExportBtn">Export profile JSON</button>
+          <label class="badge" style="cursor:pointer;">
+            Import into profile
+            <input id="recImportInput" type="file" accept="application/json" style="display:none;">
+          </label>
+        </div>
+
+        <div class="mono" style="margin-top:8px;">
+          Tip: keep a Recording profile for data collection and a Demo profile for presentation.
+        </div>
+      </div>
     </div>
+  </div>
 
-    <div class="inline" style="margin-bottom:10px;">
-      <input id="avatarText" type="text" style="width:min(520px,100%);" placeholder="Send text to avatar, e.g. HELLO" />
-      <button id="sendToAvatarBtn">Send to Avatar</button>
+  <!-- PROFILES TAB -->
+  <div id="tabProfiles" class="hide">
+    <div class="panel">
+      <div class="muted">Profiles (LocalStorage)</div>
+      <div class="hr"></div>
+
+      <div class="inline">
+        <label class="small" style="margin:0;">Select</label>
+        <select id="profileSelect"></select>
+        <button id="profileActivateBtn" class="btnPrimary">Activate</button>
+        <button id="profileDeleteBtn" class="btnDanger">Delete</button>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid">
+        <div>
+          <label class="small">New profile name</label>
+          <input id="newProfileName" placeholder="e.g., FriendRecorder" />
+        </div>
+        <div>
+          <label class="small">Mode</label>
+          <select id="newProfileMode">
+            <option value="recording">Recording</option>
+            <option value="demo">Demo</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="inline" style="margin-top:10px;">
+        <button id="profileCreateBtn">Create profile</button>
+        <span class="badge">Active samples: <span id="activeSamplesKpi">0</span></span>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="mono">
+        Profiles are per-device/per-browser. Move datasets between devices using Export/Import JSON.
+      </div>
     </div>
+  </div>
 
-    <div class="iframeWrap">
-      <iframe id="avatarFrame" src="./avatar_engine/index.html"></iframe>
+  <!-- Profile Switch Modal -->
+  <div class="modalOverlay" id="profileModal">
+    <div class="modal">
+      <div class="modalTitle">Switch / Create Profile</div>
+      <div class="muted">Mode decides workflow: Recording or Demo.</div>
+      <div class="hr"></div>
+
+      <div class="inline">
+        <label class="small" style="margin:0;">Existing</label>
+        <select id="profileModalSelect"></select>
+        <button id="profileModalActivateBtn" class="btnPrimary">Activate</button>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid">
+        <div>
+          <label class="small">New profile name</label>
+          <input id="profileModalNewName" placeholder="e.g., BossDemo / FriendRecording" />
+        </div>
+        <div>
+          <label class="small">Mode</label>
+          <select id="profileModalNewMode">
+            <option value="recording">Recording</option>
+            <option value="demo">Demo</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="inline" style="margin-top:10px; justify-content:flex-end;">
+        <button id="profileModalCreateBtn">Create & Activate</button>
+        <button id="profileModalCloseBtn" class="btnGhost">Close</button>
+      </div>
     </div>
+  </div>
 
-    <div class="mono" style="margin-top:10px;">
-      Integration: we send <code>{ type: "avatar_text", text: "HELLO" }</code> via postMessage to the iframe.
+  <!-- Recorder Advance Overlay -->
+  <div class="modalOverlay" id="advanceOverlay">
+    <div class="modal">
+      <div class="modalTitle">Letter completed</div>
+      <div class="muted" id="advanceMsg">—</div>
+      <div class="hr"></div>
+      <div class="modalActions">
+        <button id="advanceStayBtn" class="btnGhost">Stay on current</button>
+        <button id="advanceContinueBtn" class="btnPrimary">Continue</button>
+      </div>
     </div>
-  </section>
+  </div>
 
-  <!-- TF.js + kNN (global) -->
+  <!-- TF.js + kNN -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.2/dist/knn-classifier.min.js"></script>
 
-  <!-- Tabs logic + Avatar bridge -->
-  <script>
-    // Tabs
-    const tabButtons = Array.from(document.querySelectorAll(".tabbtn"));
-    const tabPanels = Array.from(document.querySelectorAll(".tabpanel"));
-
-    function openTab(id) {
-      tabButtons.forEach(b => b.classList.toggle("active", b.dataset.tab === id));
-      tabPanels.forEach(p => p.classList.toggle("active", p.id === id));
-    }
-
-    tabButtons.forEach(btn => {
-      btn.addEventListener("click", () => openTab(btn.dataset.tab));
-    });
-
-    // Avatar bridge
-    const avatarFrame = document.getElementById("avatarFrame");
-    const avatarText = document.getElementById("avatarText");
-    const sendBtn = document.getElementById("sendToAvatarBtn");
-
-    function sendTextToAvatar(text) {
-      if (!avatarFrame || !avatarFrame.contentWindow) return;
-      avatarFrame.contentWindow.postMessage({ type: "avatar_text", text: String(text || "") }, "*");
-    }
-
-    sendBtn.addEventListener("click", () => sendTextToAvatar(avatarText.value));
-    avatarText.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") sendTextToAvatar(avatarText.value);
-    });
-  </script>
-
-  <!-- App code (ES module) -->
   <script type="module">
-    import {
-      FilesetResolver,
-      HandLandmarker,
-      DrawingUtils
-    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+    import { FilesetResolver, HandLandmarker, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
-    // -------- UI refs --------
+    // -----------------------
+    // Tabs + stopping cameras when switching
+    // -----------------------
+    const tabDemoBtn = document.getElementById("tabDemoBtn");
+    const tabRecorderBtn = document.getElementById("tabRecorderBtn");
+    const tabProfilesBtn = document.getElementById("tabProfilesBtn");
+    const tabDemo = document.getElementById("tabDemo");
+    const tabRecorder = document.getElementById("tabRecorder");
+    const tabProfiles = document.getElementById("tabProfiles");
+
+    function setActiveTab(name) {
+      tabDemoBtn.classList.toggle("active", name === "demo");
+      tabRecorderBtn.classList.toggle("active", name === "recorder");
+      tabProfilesBtn.classList.toggle("active", name === "profiles");
+      tabDemo.classList.toggle("hide", name !== "demo");
+      tabRecorder.classList.toggle("hide", name !== "recorder");
+      tabProfiles.classList.toggle("hide", name !== "profiles");
+
+      // Optional safety: stop the camera loops if user leaves that tab
+      if (name !== "demo") demoStop();
+      if (name !== "recorder") recorderStop();
+    }
+    tabDemoBtn.addEventListener("click", () => setActiveTab("demo"));
+    tabRecorderBtn.addEventListener("click", () => setActiveTab("recorder"));
+    tabProfilesBtn.addEventListener("click", () => setActiveTab("profiles"));
+
+    // -----------------------
+    // Top status
+    // -----------------------
+    const activeProfileNameEl = document.getElementById("activeProfileName");
+    const activeProfileModeEl = document.getElementById("activeProfileMode");
+    const switchProfileBtn = document.getElementById("switchProfileBtn");
+    const statusEl = document.getElementById("status");
+    function setStatus(s) { statusEl.textContent = s; }
+
+    // -----------------------
+    // Demo refs
+    // -----------------------
     const videoEl = document.getElementById("video");
     const canvasEl = document.getElementById("canvas");
     const ctx = canvasEl.getContext("2d");
-
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
     const clearTextBtn = document.getElementById("clearTextBtn");
-    const statusEl = document.getElementById("status");
-
     const stableLabelEl = document.getElementById("stableLabel");
     const rawLabelEl = document.getElementById("rawLabel");
     const confEl = document.getElementById("conf");
     const handInfoEl = document.getElementById("handInfo");
-
     const transcriptEl = document.getElementById("transcript");
-
     const aslLabelEl = document.getElementById("aslLabel");
     const addSampleBtn = document.getElementById("addSampleBtn");
     const clearSamplesBtn = document.getElementById("clearSamplesBtn");
     const sampleCountEl = document.getElementById("sampleCount");
-
     const exportBtn = document.getElementById("exportBtn");
     const importInput = document.getElementById("importInput");
-
     const stabWindowEl = document.getElementById("stabWindow");
     const stabMajorityEl = document.getElementById("stabMajority");
     const minConfEl = document.getElementById("minConf");
     const emitDebounceEl = document.getElementById("emitDebounce");
 
-    function setStatus(s) { statusEl.textContent = s; }
+    // -----------------------
+    // Recorder refs
+    // -----------------------
+    const videoRec = document.getElementById("videoRec");
+    const canvasRec = document.getElementById("canvasRec");
+    const ctxRec = canvasRec.getContext("2d");
+    const recStartBtn = document.getElementById("recStartBtn");
+    const recStopBtn = document.getElementById("recStopBtn");
+    const recResetLetterBtn = document.getElementById("recResetLetterBtn");
+    const recTargetLabelEl = document.getElementById("recTargetLabel");
+    const recProgressEl = document.getElementById("recProgress");
+    const recAutoStateEl = document.getElementById("recAutoState");
+    const recMotionEl = document.getElementById("recMotion");
+    const recPresetEl = document.getElementById("recPreset");
+    const recGoalEl = document.getElementById("recGoal");
+    const recHoldMsEl = document.getElementById("recHoldMs");
+    const recCooldownMsEl = document.getElementById("recCooldownMs");
+    const recStabThreshEl = document.getElementById("recStabThresh");
+    const recPrevBtn = document.getElementById("recPrevBtn");
+    const recNextBtn = document.getElementById("recNextBtn");
+    const recExportBtn = document.getElementById("recExportBtn");
+    const recImportInput = document.getElementById("recImportInput");
 
-    // -------- kNN classifier --------
+    const recCaptureEnabledEl = document.getElementById("recCaptureEnabled");
+    const recTestRawEl = document.getElementById("recTestRaw");
+    const recTestStableEl = document.getElementById("recTestStable");
+    const recTestConfEl = document.getElementById("recTestConf");
+
+    // Advance overlay
+    const advanceOverlay = document.getElementById("advanceOverlay");
+    const advanceMsg = document.getElementById("advanceMsg");
+    const advanceStayBtn = document.getElementById("advanceStayBtn");
+    const advanceContinueBtn = document.getElementById("advanceContinueBtn");
+
+    // Profiles tab
+    const profileSelect = document.getElementById("profileSelect");
+    const profileActivateBtn = document.getElementById("profileActivateBtn");
+    const profileDeleteBtn = document.getElementById("profileDeleteBtn");
+    const newProfileName = document.getElementById("newProfileName");
+    const newProfileMode = document.getElementById("newProfileMode");
+    const profileCreateBtn = document.getElementById("profileCreateBtn");
+    const activeSamplesKpi = document.getElementById("activeSamplesKpi");
+
+    // Profile modal
+    const profileModal = document.getElementById("profileModal");
+    const profileModalSelect = document.getElementById("profileModalSelect");
+    const profileModalActivateBtn = document.getElementById("profileModalActivateBtn");
+    const profileModalNewName = document.getElementById("profileModalNewName");
+    const profileModalNewMode = document.getElementById("profileModalNewMode");
+    const profileModalCreateBtn = document.getElementById("profileModalCreateBtn");
+    const profileModalCloseBtn = document.getElementById("profileModalCloseBtn");
+
+    // -----------------------
+    // kNN + MediaPipe
+    // -----------------------
     const knn = knnClassifier.create();
 
-    // -------- MediaPipe Tasks Vision --------
     let handLandmarker = null;
-    let drawingUtils = null;
+    let drawingDemo = null;
+    let drawingRec = null;
 
-    // -------- Runtime state --------
-    let stream = null;
-    let rafId = null;
+    let streamDemo = null;
+    let rafDemo = null;
     let lastDominantLandmarks = null;
-    let lastDominantHandedness = null;
 
-    // Stabilization history: {label, conf, t}
-    let predHistory = [];
-    let lastEmitted = { label: null, t: 0 };
+    let streamRec = null;
+    let rafRec = null;
+    let lastRecDominantLandmarks = null;
 
-    // -------- Vector normalization (center + scale + unit length) --------
+    // -----------------------
+    // Profiles (LocalStorage)
+    // -----------------------
+    const LS_KEY = "asl_profiles_v3";
+    const LS_ACTIVE = "asl_active_profile_v3";
+
+    function loadProfiles() {
+      try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
+      catch { return {}; }
+    }
+    function saveProfiles(p) { localStorage.setItem(LS_KEY, JSON.stringify(p)); }
+    function getActiveProfileName() { return localStorage.getItem(LS_ACTIVE) || ""; }
+
+    function datasetToJSON(dataset) {
+      const out = {};
+      for (const label of Object.keys(dataset)) {
+        const t = dataset[label];
+        out[label] = { shape: t.shape, data: Array.from(t.dataSync()) };
+      }
+      return out;
+    }
+    function jsonToDataset(obj) {
+      const ds = {};
+      for (const label of Object.keys(obj)) {
+        const { shape, data } = obj[label];
+        ds[label] = tf.tensor(data, shape);
+      }
+      return ds;
+    }
+
+    function persistActiveProfileDataset() {
+      const name = getActiveProfileName();
+      if (!name) return;
+      const profiles = loadProfiles();
+      if (!profiles[name]) return;
+      profiles[name].datasetJSON = datasetToJSON(knn.getClassifierDataset());
+      profiles[name].updatedAt = Date.now();
+      saveProfiles(profiles);
+    }
+
+    function refreshProfileUI() {
+      const profiles = loadProfiles();
+      const names = Object.keys(profiles).sort((a,b)=>a.localeCompare(b));
+      const active = getActiveProfileName();
+
+      function fillSelect(sel) {
+        sel.innerHTML = "";
+        for (const n of names) {
+          const opt = document.createElement("option");
+          opt.value = n;
+          opt.textContent = `${n} (${profiles[n].mode})`;
+          if (n === active) opt.selected = true;
+          sel.appendChild(opt);
+        }
+      }
+      fillSelect(profileSelect);
+      fillSelect(profileModalSelect);
+
+      if (profiles[active]) {
+        activeProfileNameEl.textContent = active;
+        activeProfileModeEl.textContent = profiles[active].mode;
+      } else {
+        activeProfileNameEl.textContent = "—";
+        activeProfileModeEl.textContent = "—";
+      }
+
+      activeSamplesKpi.textContent = knn.getNumExamples();
+    }
+
+    function ensureDefaultProfiles() {
+      const p = loadProfiles();
+      const keys = Object.keys(p);
+      if (keys.length === 0) {
+        p["BossDemo"] = { mode: "demo", datasetJSON: null, createdAt: Date.now() };
+        p["FriendRecording"] = { mode: "recording", datasetJSON: null, createdAt: Date.now() };
+        saveProfiles(p);
+        localStorage.setItem(LS_ACTIVE, "BossDemo");
+      } else if (!localStorage.getItem(LS_ACTIVE)) {
+        localStorage.setItem(LS_ACTIVE, keys[0]);
+      }
+    }
+
+    function setActiveProfile(name) {
+      const profiles = loadProfiles();
+      if (!profiles[name]) return;
+
+      // stop cameras before switching
+      demoStop();
+      recorderStop();
+
+      // persist previous
+      persistActiveProfileDataset();
+
+      localStorage.setItem(LS_ACTIVE, name);
+
+      // load dataset
+      knn.clearAllClasses();
+      if (profiles[name].datasetJSON) {
+        try { knn.setClassifierDataset(jsonToDataset(profiles[name].datasetJSON)); }
+        catch (e) { console.warn("Failed to load dataset for profile", name, e); }
+      }
+
+      refreshProfileUI();
+      sampleCountEl.textContent = knn.getNumExamples();
+      activeSamplesKpi.textContent = knn.getNumExamples();
+
+      // switch tab based on mode
+      if (profiles[name].mode === "recording") setActiveTab("recorder");
+      else setActiveTab("demo");
+
+      updateRecorderHeader();
+      setStatus("Idle");
+    }
+
+    function createProfile(name, mode) {
+      name = (name || "").trim();
+      if (!name) return { ok:false, msg:"Profile name is required." };
+      const profiles = loadProfiles();
+      if (profiles[name]) return { ok:false, msg:"Profile already exists." };
+      profiles[name] = { mode, datasetJSON: null, createdAt: Date.now() };
+      saveProfiles(profiles);
+      return { ok:true };
+    }
+
+    function deleteProfile(name) {
+      const profiles = loadProfiles();
+      if (!profiles[name]) return;
+
+      demoStop();
+      recorderStop();
+
+      delete profiles[name];
+      saveProfiles(profiles);
+
+      const remaining = Object.keys(profiles);
+      if (getActiveProfileName() === name) localStorage.setItem(LS_ACTIVE, remaining[0] || "");
+      refreshProfileUI();
+      const a = getActiveProfileName();
+      if (a) setActiveProfile(a);
+    }
+
+    // -----------------------
+    // Utilities
+    // -----------------------
+    function downloadJSON(filename, obj) {
+      const blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function ensureCanvasSizeFor(video, canvas) {
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 480;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w; canvas.height = h;
+      }
+    }
+
     function landmarksToNormalizedVector(lm) {
-      const base = lm[0]; // wrist
-
+      const base = lm[0];
       const dx1 = lm[5].x - base.x, dy1 = lm[5].y - base.y, dz1 = (lm[5].z ?? 0) - (base.z ?? 0);
       const dx2 = lm[9].x - base.x, dy2 = lm[9].y - base.y, dz2 = (lm[9].z ?? 0) - (base.z ?? 0);
       const s1 = Math.hypot(dx1, dy1, dz1);
@@ -293,7 +675,98 @@
       return v;
     }
 
-    // -------- Stabilization --------
+    function bboxAreaFromLandmarks(lm) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of lm) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      }
+      const w = Math.max(0, maxX - minX);
+      const h = Math.max(0, maxY - minY);
+      return w * h;
+    }
+
+    function pickDominantHandIndex(result) {
+      const lms = result.landmarks || [];
+      if (lms.length === 0) return -1;
+      if (lms.length === 1) return 0;
+      let bestIdx = 0, bestArea = -1;
+      for (let i = 0; i < lms.length; i++) {
+        const area = bboxAreaFromLandmarks(lms[i]);
+        if (area > bestArea) { bestArea = area; bestIdx = i; }
+      }
+      return bestIdx;
+    }
+
+    function handednessLabel(result, idx) {
+      try {
+        const h = result.handedness?.[idx]?.[0];
+        if (!h) return null;
+        return `${h.categoryName} (${(h.score ?? 0).toFixed(2)})`;
+      } catch { return null; }
+    }
+
+    // -----------------------
+    // MediaPipe init
+    // -----------------------
+    async function initHandLandmarker() {
+      setStatus("Loading model…");
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+      );
+      handLandmarker = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+        },
+        runningMode: "VIDEO",
+        numHands: 2
+      });
+      drawingDemo = new DrawingUtils(ctx);
+      drawingRec = new DrawingUtils(ctxRec);
+    }
+
+    function drawHands(video, canvas, context, drawing, result) {
+      ensureCanvasSizeFor(video, canvas);
+      context.save();
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const lms = result.landmarks || [];
+      if (lms.length > 0) {
+        for (const lm of lms) {
+          drawing.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { lineWidth: 3 });
+          drawing.drawLandmarks(lm, { lineWidth: 2 });
+        }
+      }
+      context.restore();
+    }
+
+    // -----------------------
+    // kNN predict
+    // -----------------------
+    async function knnPredict(lm) {
+      if (knn.getNumExamples() <= 0) return { label: null, conf: 0 };
+      const vec = landmarksToNormalizedVector(lm);
+      const tensor = tf.tensor(vec, [1, vec.length]);
+      try {
+        const pred = await knn.predictClass(tensor, 5);
+        const label = pred.label;
+        const conf = (pred.confidences && pred.confidences[label]) ? pred.confidences[label] : 0;
+        return { label, conf };
+      } finally {
+        tensor.dispose();
+      }
+    }
+
+    // -----------------------
+    // Demo stabilization + debounce
+    // -----------------------
+    let predHistory = [];
+    let lastEmitted = { label: null, t: 0 };
+
     function addPrediction(label, conf) {
       const windowN = Math.max(3, Math.min(30, parseInt(stabWindowEl.value || "12", 10)));
       predHistory.push({ label, conf, t: Date.now() });
@@ -316,22 +789,15 @@
         counts.set(p.label, (counts.get(p.label) || 0) + 1);
         confSum.set(p.label, (confSum.get(p.label) || 0) + p.conf);
       }
-
       if (considered === 0) return { label: null, conf: 0, ratio: 0 };
 
-      let bestLabel = null;
-      let bestCount = -1;
-      let bestAvgConf = -1;
-
+      let bestLabel = null, bestCount = -1, bestAvgConf = -1;
       for (const [label, c] of counts.entries()) {
         const avg = (confSum.get(label) || 0) / c;
         if (c > bestCount || (c === bestCount && avg > bestAvgConf)) {
-          bestLabel = label;
-          bestCount = c;
-          bestAvgConf = avg;
+          bestLabel = label; bestCount = c; bestAvgConf = avg;
         }
       }
-
       const ratio = bestCount / considered;
       if (ratio >= majority) return { label: bestLabel, conf: bestAvgConf, ratio };
       return { label: null, conf: bestAvgConf, ratio };
@@ -339,202 +805,32 @@
 
     function emitIfStable(label) {
       if (!label) return;
-
       const now = Date.now();
       const debounceMs = Math.max(150, Math.min(4000, parseInt(emitDebounceEl.value || "900", 10)));
 
       if (lastEmitted.label === label && (now - lastEmitted.t) < (debounceMs + 250)) return;
       if ((now - lastEmitted.t) < debounceMs) return;
 
-      if (label === "BACKSPACE") {
-        transcriptEl.value = transcriptEl.value.slice(0, -1);
-      } else if (label === "SPACE") {
-        transcriptEl.value += " ";
-      } else {
-        transcriptEl.value += label;
-      }
+      if (label === "BACKSPACE") transcriptEl.value = transcriptEl.value.slice(0, -1);
+      else if (label === "SPACE") transcriptEl.value += " ";
+      else transcriptEl.value += label;
 
       lastEmitted = { label, t: now };
     }
 
-    // -------- Export/Import JSON --------
-    function datasetToJSON(dataset) {
-      const out = {};
-      for (const label of Object.keys(dataset)) {
-        const t = dataset[label];
-        out[label] = { shape: t.shape, data: Array.from(t.dataSync()) };
-      }
-      return out;
-    }
-
-    function jsonToDataset(obj) {
-      const ds = {};
-      for (const label of Object.keys(obj)) {
-        const { shape, data } = obj[label];
-        ds[label] = tf.tensor(data, shape);
-      }
-      return ds;
-    }
-
-    function downloadJSON(filename, obj) {
-      const blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }
-
-    exportBtn.addEventListener("click", () => {
-      const ds = knn.getClassifierDataset();
-      const json = datasetToJSON(ds);
-      downloadJSON("asl_knn_samples.json", json);
-    });
-
-    importInput.addEventListener("change", async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const text = await file.text();
-      const obj = JSON.parse(text);
-      const ds = jsonToDataset(obj);
-      knn.setClassifierDataset(ds);
-      sampleCountEl.textContent = knn.getNumExamples();
-      importInput.value = "";
-      alert("Samples imported.");
-    });
-
-    // -------- Dominant hand selection --------
-    function bboxAreaFromLandmarks(lm) {
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const p of lm) {
-        if (p.x < minX) minX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y > maxY) maxY = p.y;
-      }
-      const w = Math.max(0, maxX - minX);
-      const h = Math.max(0, maxY - minY);
-      return w * h;
-    }
-
-    function pickDominantHandIndex(result) {
-      const lms = result.landmarks || [];
-      if (lms.length === 0) return -1;
-      if (lms.length === 1) return 0;
-
-      let bestIdx = 0;
-      let bestArea = -1;
-      for (let i = 0; i < lms.length; i++) {
-        const area = bboxAreaFromLandmarks(lms[i]);
-        if (area > bestArea) {
-          bestArea = area;
-          bestIdx = i;
-        }
-      }
-      return bestIdx;
-    }
-
-    // ✅ FIX: proper string building (no broken ${} outside template strings)
-    function handednessLabel(result, idx) {
-      try {
-        const h = result.handedness?.[idx]?.[0];
-        if (!h) return null;
-        return `${h.categoryName} (${(h.score ?? 0).toFixed(2)})`;
-      } catch {
-        return null;
-      }
-    }
-
-    // -------- MediaPipe init --------
-    async function initHandLandmarker() {
-      setStatus("Loading model…");
-
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
-      );
-
-      handLandmarker = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
-        },
-        runningMode: "VIDEO",
-        numHands: 2
-      });
-
-      drawingUtils = new DrawingUtils(ctx);
-    }
-
-    function ensureCanvasSize() {
-      const w = videoEl.videoWidth || 640;
-      const h = videoEl.videoHeight || 480;
-      if (canvasEl.width !== w || canvasEl.height !== h) {
-        canvasEl.width = w;
-        canvasEl.height = h;
-      }
-    }
-
-    async function predictFromLandmarks(lm) {
-      if (knn.getNumExamples() <= 0) {
-        rawLabelEl.textContent = "NO SAMPLES";
-        stableLabelEl.textContent = "Train first";
-        confEl.textContent = "—";
-        return;
-      }
-
-      const vec = landmarksToNormalizedVector(lm);
-      const tensor = tf.tensor(vec, [1, vec.length]);
-
-      const pred = await knn.predictClass(tensor, 5);
-      const label = pred.label;
-
-      const conf = (pred.confidences && pred.confidences[label]) ? pred.confidences[label] : 0;
-
-      rawLabelEl.textContent = label;
-      confEl.textContent = conf.toFixed(2);
-
-      addPrediction(label, conf);
-
-      const stable = getStablePrediction();
-
-      // ✅ FIX: safe display with strings
-      stableLabelEl.textContent = stable.label
-        ? `${stable.label} (ratio ${stable.ratio.toFixed(2)})`
-        : `— (ratio ${stable.ratio.toFixed(2)})`;
-
-      emitIfStable(stable.label);
-    }
-
-    function drawHands(result) {
-      ensureCanvasSize();
-
-      ctx.save();
-      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-      ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-
-      const lms = result.landmarks || [];
-      if (lms.length > 0) {
-        for (const lm of lms) {
-          drawingUtils.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { lineWidth: 3 });
-          drawingUtils.drawLandmarks(lm, { lineWidth: 2 });
-        }
-      }
-
-      ctx.restore();
-    }
-
-    async function step() {
+    // -----------------------
+    // Demo loop
+    // -----------------------
+    async function demoStep() {
       if (!handLandmarker) return;
 
       const now = performance.now();
       const result = handLandmarker.detectForVideo(videoEl, now);
-
-      drawHands(result);
+      drawHands(videoEl, canvasEl, ctx, drawingDemo, result);
 
       const lms = result.landmarks || [];
       if (lms.length === 0) {
         lastDominantLandmarks = null;
-        lastDominantHandedness = null;
         predHistory = [];
         rawLabelEl.textContent = "—";
         stableLabelEl.textContent = "—";
@@ -543,88 +839,74 @@
       } else {
         const idx = pickDominantHandIndex(result);
         lastDominantLandmarks = lms[idx];
-        lastDominantHandedness = handednessLabel(result, idx);
-        handInfoEl.textContent = lastDominantHandedness || `#${idx}`;
+        handInfoEl.textContent = handednessLabel(result, idx) || `#${idx}`;
 
-        await predictFromLandmarks(lastDominantLandmarks);
+        const pred = await knnPredict(lastDominantLandmarks);
+        if (!pred.label) {
+          rawLabelEl.textContent = "NO SAMPLES";
+          stableLabelEl.textContent = "Train first";
+          confEl.textContent = "—";
+        } else {
+          rawLabelEl.textContent = pred.label;
+          confEl.textContent = pred.conf.toFixed(2);
+          addPrediction(pred.label, pred.conf);
+          const stable = getStablePrediction();
+          stableLabelEl.textContent = stable.label
+            ? `${stable.label} (ratio ${stable.ratio.toFixed(2)})`
+            : `— (ratio ${stable.ratio.toFixed(2)})`;
+          emitIfStable(stable.label);
+        }
       }
-
-      rafId = requestAnimationFrame(step);
+      rafDemo = requestAnimationFrame(demoStep);
     }
 
-    async function start() {
-      if (rafId) return;
+    async function demoStart() {
+      if (rafDemo) return;
+
+      recorderStop(); // prevent two cameras at once
+      setActiveTab("demo");
 
       setStatus("Starting…");
+      if (!handLandmarker) await initHandLandmarker();
 
-      if (!handLandmarker) {
-        await initHandLandmarker();
-      }
-
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
-        audio: false
-      });
-
-      videoEl.srcObject = stream;
+      streamDemo = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+      videoEl.srcObject = streamDemo;
       await videoEl.play();
 
       setStatus("Running");
       startBtn.disabled = true;
       stopBtn.disabled = false;
-
-      rafId = requestAnimationFrame(step);
+      rafDemo = requestAnimationFrame(demoStep);
     }
 
-    function stop() {
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = null;
-
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-      }
-
+    function demoStop() {
+      if (rafDemo) cancelAnimationFrame(rafDemo);
+      rafDemo = null;
+      if (streamDemo) { streamDemo.getTracks().forEach(t => t.stop()); streamDemo = null; }
       videoEl.srcObject = null;
 
-      setStatus("Idle");
       startBtn.disabled = false;
       stopBtn.disabled = true;
 
       predHistory = [];
       lastEmitted = { label: null, t: 0 };
       lastDominantLandmarks = null;
-      lastDominantHandedness = null;
+
       rawLabelEl.textContent = "—";
       stableLabelEl.textContent = "—";
       confEl.textContent = "—";
       handInfoEl.textContent = "—";
+
+      if (statusEl.textContent === "Running") setStatus("Idle");
     }
 
-    // -------- Training controls --------
-    addSampleBtn.addEventListener("click", () => {
-      if (!lastDominantLandmarks) {
-        alert("No hand detected. Show your hand to the camera first.");
-        return;
-      }
-
-      const label = aslLabelEl.value;
-      const vec = landmarksToNormalizedVector(lastDominantLandmarks);
-      const tensor = tf.tensor(vec, [1, vec.length]);
-
-      knn.addExample(tensor, label);
-      sampleCountEl.textContent = knn.getNumExamples();
-    });
-
-    clearSamplesBtn.addEventListener("click", () => {
-      knn.clearAllClasses();
-      sampleCountEl.textContent = 0;
-      predHistory = [];
-      lastEmitted = { label: null, t: 0 };
-      rawLabelEl.textContent = "—";
-      stableLabelEl.textContent = "—";
-      confEl.textContent = "—";
-    });
+    startBtn.addEventListener("click", () => demoStart().catch(err => {
+      console.error(err);
+      setStatus("Error");
+      alert("Could not start. Use Chrome/Edge and run on a real server (GitHub Pages or http://localhost). Check camera permissions.");
+      demoStop();
+    }));
+    stopBtn.addEventListener("click", demoStop);
 
     clearTextBtn.addEventListener("click", () => {
       transcriptEl.value = "";
@@ -632,16 +914,520 @@
       lastEmitted = { label: null, t: 0 };
     });
 
-    startBtn.addEventListener("click", () => start().catch(err => {
+    addSampleBtn.addEventListener("click", () => {
+      if (!lastDominantLandmarks) { alert("No hand detected. Show your hand to the camera first."); return; }
+      const label = aslLabelEl.value;
+      const vec = landmarksToNormalizedVector(lastDominantLandmarks);
+      const tensor = tf.tensor(vec, [1, vec.length]);
+      try {
+        knn.addExample(tensor, label);
+      } finally {
+        tensor.dispose();
+      }
+      sampleCountEl.textContent = knn.getNumExamples();
+      activeSamplesKpi.textContent = knn.getNumExamples();
+      persistActiveProfileDataset();
+      updateRecorderHeader();
+    });
+
+    clearSamplesBtn.addEventListener("click", () => {
+      if (!confirm("Clear ALL samples for active profile?")) return;
+      knn.clearAllClasses();
+      sampleCountEl.textContent = 0;
+      activeSamplesKpi.textContent = 0;
+      predHistory = [];
+      lastEmitted = { label: null, t: 0 };
+      rawLabelEl.textContent = "—";
+      stableLabelEl.textContent = "—";
+      confEl.textContent = "—";
+      persistActiveProfileDataset();
+      updateRecorderHeader();
+    });
+
+    exportBtn.addEventListener("click", () => {
+      persistActiveProfileDataset();
+      const active = getActiveProfileName();
+      const profiles = loadProfiles();
+      const prof = profiles[active];
+      downloadJSON(`${active || "profile"}_knn.json`, {
+        profile: active,
+        mode: prof?.mode || "demo",
+        dataset: prof?.datasetJSON || datasetToJSON(knn.getClassifierDataset()),
+        exportedAt: new Date().toISOString()
+      });
+    });
+
+    importInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      const obj = JSON.parse(text);
+      const dsObj = obj.dataset ? obj.dataset : obj;
+
+      try {
+        knn.clearAllClasses();
+        knn.setClassifierDataset(jsonToDataset(dsObj));
+        sampleCountEl.textContent = knn.getNumExamples();
+        activeSamplesKpi.textContent = knn.getNumExamples();
+        persistActiveProfileDataset();
+        updateRecorderHeader();
+        alert("Imported into active profile.");
+      } catch (err) {
+        console.error(err);
+        alert("Import failed. File format not recognized.");
+      } finally {
+        importInput.value = "";
+      }
+    });
+
+    // -----------------------
+    // Recorder (stability-based) + Test-only preview
+    // -----------------------
+    const LABELS = ["A","B","C","D","E","F","G","H","I","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y"];
+    let recLabelIndex = 0;
+    let recIsRunning = false;
+    let recLastSampleAt = 0;
+    let recStableSince = 0;
+    let recPrevVec = null;
+
+    // test stabilization (fixed)
+    let recPredHistory = [];
+    function recAddPrediction(label, conf) {
+      const windowN = 12;
+      recPredHistory.push({ label, conf, t: Date.now() });
+      if (recPredHistory.length > windowN) recPredHistory.shift();
+    }
+    function recGetStablePrediction() {
+      if (recPredHistory.length === 0) return { label: null, conf: 0, ratio: 0 };
+      const minConf = 0.55;
+      const majority = 0.7;
+
+      const counts = new Map();
+      const confSum = new Map();
+      let considered = 0;
+
+      for (const p of recPredHistory) {
+        if (p.conf < minConf) continue;
+        considered++;
+        counts.set(p.label, (counts.get(p.label) || 0) + 1);
+        confSum.set(p.label, (confSum.get(p.label) || 0) + p.conf);
+      }
+      if (considered === 0) return { label: null, conf: 0, ratio: 0 };
+
+      let bestLabel = null, bestCount = -1, bestAvg = -1;
+      for (const [label, c] of counts.entries()) {
+        const avg = (confSum.get(label) || 0) / c;
+        if (c > bestCount || (c === bestCount && avg > bestAvg)) {
+          bestLabel = label; bestCount = c; bestAvg = avg;
+        }
+      }
+      const ratio = bestCount / considered;
+      if (ratio >= majority) return { label: bestLabel, conf: bestAvg, ratio };
+      return { label: null, conf: bestAvg, ratio };
+    }
+
+    function getRecTargetLabel() { return LABELS[recLabelIndex] || "A"; }
+
+    function getDatasetCountsFromKnn() {
+      const ds = knn.getClassifierDataset();
+      const counts = {};
+      for (const label of Object.keys(ds)) {
+        const t = ds[label];
+        counts[label] = t.shape?.[0] || 0;
+      }
+      return counts;
+    }
+
+    function updateRecorderHeader() {
+      const label = getRecTargetLabel();
+      recTargetLabelEl.textContent = label;
+      const goal = Math.max(5, Math.min(200, parseInt(recGoalEl.value || "30", 10)));
+      const counts = getDatasetCountsFromKnn();
+      const n = counts[label] || 0;
+      recProgressEl.textContent = `${n}/${goal}`;
+      recAutoStateEl.textContent = recIsRunning ? "ON" : "OFF";
+    }
+
+    function applyRecPreset(p) {
+      if (p === "fast") {
+        recHoldMsEl.value = 250;
+        recCooldownMsEl.value = 140;
+        recStabThreshEl.value = 0.11;
+      } else if (p === "strict") {
+        recHoldMsEl.value = 650;
+        recCooldownMsEl.value = 260;
+        recStabThreshEl.value = 0.06;
+      } else {
+        recHoldMsEl.value = 450;
+        recCooldownMsEl.value = 220;
+        recStabThreshEl.value = 0.08;
+      }
+      updateRecorderHeader();
+    }
+    recPresetEl.addEventListener("change", () => applyRecPreset(recPresetEl.value));
+
+    function showAdvanceOverlay(fromLabel, toLabel) {
+      const goal = Math.max(5, Math.min(200, parseInt(recGoalEl.value || "30", 10)));
+      advanceMsg.textContent = `${fromLabel} complete (${goal}/${goal}). Next: ${toLabel}. Change the sign, then press Continue.`;
+      advanceOverlay.style.display = "flex";
+    }
+    function hideAdvanceOverlay() {
+      advanceOverlay.style.display = "none";
+    }
+
+    function maybeAutoAdvanceIfDone() {
+      const label = getRecTargetLabel();
+      const goal = Math.max(5, Math.min(200, parseInt(recGoalEl.value || "30", 10)));
+      const counts = getDatasetCountsFromKnn();
+      const n = counts[label] || 0;
+
+      if (n >= goal && recLabelIndex < LABELS.length - 1) {
+        // stop recorder and ask user to confirm next letter
+        recIsRunning = false;
+        recStartBtn.disabled = false;
+        recStopBtn.disabled = true;
+        updateRecorderHeader();
+
+        const nextLabel = LABELS[recLabelIndex + 1];
+        showAdvanceOverlay(label, nextLabel);
+      }
+    }
+
+    function addRecorderSample(label, lm) {
+      const vec = landmarksToNormalizedVector(lm);
+      const tensor = tf.tensor(vec, [1, vec.length]);
+      try {
+        knn.addExample(tensor, label);
+      } finally {
+        tensor.dispose();
+      }
+      sampleCountEl.textContent = knn.getNumExamples();
+      activeSamplesKpi.textContent = knn.getNumExamples();
+      persistActiveProfileDataset();
+      updateRecorderHeader();
+    }
+
+    function resetCurrentLetterSamples() {
+      const label = getRecTargetLabel();
+      const ds = knn.getClassifierDataset();
+      if (!ds[label]) return;
+
+      const newDS = {};
+      for (const k of Object.keys(ds)) if (k !== label) newDS[k] = ds[k];
+
+      knn.clearAllClasses();
+      knn.setClassifierDataset(newDS);
+
+      persistActiveProfileDataset();
+      sampleCountEl.textContent = knn.getNumExamples();
+      activeSamplesKpi.textContent = knn.getNumExamples();
+      updateRecorderHeader();
+    }
+
+    // Recorder loop: throttle ~15fps
+    let recLastFrameTs = 0;
+
+    async function recorderStep(ts) {
+      if (!handLandmarker) return;
+
+      if (ts - recLastFrameTs < 66) {
+        rafRec = requestAnimationFrame(recorderStep);
+        return;
+      }
+      recLastFrameTs = ts;
+
+      const result = handLandmarker.detectForVideo(videoRec, ts);
+      drawHands(videoRec, canvasRec, ctxRec, drawingRec, result);
+
+      const lms = result.landmarks || [];
+      if (lms.length === 0) {
+        lastRecDominantLandmarks = null;
+        recStableSince = 0;
+        recPrevVec = null;
+        recMotionEl.textContent = "—";
+        recPredHistory = [];
+        recTestRawEl.textContent = "—";
+        recTestStableEl.textContent = "—";
+        recTestConfEl.textContent = "—";
+        rafRec = requestAnimationFrame(recorderStep);
+        return;
+      }
+
+      const idx = pickDominantHandIndex(result);
+      lastRecDominantLandmarks = lms[idx];
+
+      const vec = landmarksToNormalizedVector(lastRecDominantLandmarks);
+      let vecDelta = 999;
+      if (recPrevVec) {
+        let sum = 0;
+        for (let i = 0; i < vec.length; i++) {
+          const d = vec[i] - recPrevVec[i];
+          sum += d * d;
+        }
+        vecDelta = Math.sqrt(sum);
+      }
+      recPrevVec = vec;
+      recMotionEl.textContent = isFinite(vecDelta) ? vecDelta.toFixed(3) : "—";
+
+      // Test-only preview (raw/stable/conf) always available
+      if (knn.getNumExamples() > 0) {
+        const pred = await knnPredict(lastRecDominantLandmarks);
+        if (pred.label) {
+          recTestRawEl.textContent = pred.label;
+          recTestConfEl.textContent = pred.conf.toFixed(2);
+          recAddPrediction(pred.label, pred.conf);
+          const stable = recGetStablePrediction();
+          recTestStableEl.textContent = stable.label ? `${stable.label} (${stable.ratio.toFixed(2)})` : `— (${stable.ratio.toFixed(2)})`;
+        } else {
+          recTestRawEl.textContent = "NO SAMPLES";
+          recTestStableEl.textContent = "—";
+          recTestConfEl.textContent = "—";
+        }
+      } else {
+        recTestRawEl.textContent = "NO SAMPLES";
+        recTestStableEl.textContent = "—";
+        recTestConfEl.textContent = "—";
+      }
+
+      // Capture only if running AND enabled
+      if (recIsRunning && lastRecDominantLandmarks && recCaptureEnabledEl.checked) {
+        const holdMs = Math.max(100, Math.min(3000, parseInt(recHoldMsEl.value || "450", 10)));
+        const cooldownMs = Math.max(50, Math.min(3000, parseInt(recCooldownMsEl.value || "220", 10)));
+        const stabThresh = Math.max(0.01, Math.min(0.50, parseFloat(recStabThreshEl.value || "0.08")));
+        const nowMs = Date.now();
+
+        const stableEnough = vecDelta <= stabThresh;
+
+        if (!stableEnough) {
+          recStableSince = 0;
+        } else {
+          if (!recStableSince) recStableSince = nowMs;
+          const held = nowMs - recStableSince;
+
+          if (held >= holdMs && (nowMs - recLastSampleAt) >= cooldownMs) {
+            addRecorderSample(getRecTargetLabel(), lastRecDominantLandmarks);
+            recLastSampleAt = nowMs;
+            recStableSince = 0;
+            maybeAutoAdvanceIfDone();
+          }
+        }
+      }
+
+      rafRec = requestAnimationFrame(recorderStep);
+    }
+
+    async function recorderStart() {
+      if (rafRec) return;
+
+      const profiles = loadProfiles();
+      const active = getActiveProfileName();
+      if (profiles[active]?.mode !== "recording") {
+        alert("Active profile is not in Recording mode. Switch profile or change mode in Profiles.");
+        return;
+      }
+
+      demoStop(); // prevent two cameras at once
+      setActiveTab("recorder");
+
+      setStatus("Starting…");
+      if (!handLandmarker) await initHandLandmarker();
+
+      streamRec = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+      videoRec.srcObject = streamRec;
+      await videoRec.play();
+
+      recIsRunning = true;
+      recStartBtn.disabled = true;
+      recStopBtn.disabled = false;
+      updateRecorderHeader();
+      setStatus("Running");
+
+      recLastFrameTs = 0;
+      rafRec = requestAnimationFrame(recorderStep);
+    }
+
+    function recorderStop() {
+      // do not spam-stop if already stopped
+      if (!rafRec && !streamRec) {
+        recIsRunning = false;
+        recStartBtn.disabled = false;
+        recStopBtn.disabled = true;
+        updateRecorderHeader();
+        return;
+      }
+
+      recIsRunning = false;
+
+      if (rafRec) cancelAnimationFrame(rafRec);
+      rafRec = null;
+
+      if (streamRec) { streamRec.getTracks().forEach(t => t.stop()); streamRec = null; }
+      videoRec.srcObject = null;
+
+      recStartBtn.disabled = false;
+      recStopBtn.disabled = true;
+
+      recStableSince = 0;
+      recPrevVec = null;
+      recMotionEl.textContent = "—";
+
+      recPredHistory = [];
+      recTestRawEl.textContent = "—";
+      recTestStableEl.textContent = "—";
+      recTestConfEl.textContent = "—";
+
+      updateRecorderHeader();
+      if (statusEl.textContent === "Running") setStatus("Idle");
+    }
+
+    recStartBtn.addEventListener("click", () => recorderStart().catch(err => {
       console.error(err);
       setStatus("Error");
-      alert("Could not start. Use Chrome/Edge and run via https/http (not file://). Check camera permissions.");
-      stop();
+      alert("Could not start Recorder. Use Chrome/Edge and allow camera.");
+      recorderStop();
     }));
+    recStopBtn.addEventListener("click", recorderStop);
 
-    stopBtn.addEventListener("click", stop);
+    recPrevBtn.addEventListener("click", () => {
+      recLabelIndex = Math.max(0, recLabelIndex - 1);
+      recStableSince = 0; recPrevVec = null;
+      recPredHistory = [];
+      updateRecorderHeader();
+    });
+    recNextBtn.addEventListener("click", () => {
+      recLabelIndex = Math.min(LABELS.length - 1, recLabelIndex + 1);
+      recStableSince = 0; recPrevVec = null;
+      recPredHistory = [];
+      updateRecorderHeader();
+    });
 
+    recResetLetterBtn.addEventListener("click", () => {
+      const label = getRecTargetLabel();
+      if (!confirm(`Reset samples for letter "${label}" in active profile?`)) return;
+      resetCurrentLetterSamples();
+    });
+
+    recExportBtn.addEventListener("click", () => {
+      persistActiveProfileDataset();
+      const active = getActiveProfileName();
+      const profiles = loadProfiles();
+      const prof = profiles[active];
+      downloadJSON(`${active || "profile"}_knn.json`, {
+        profile: active,
+        mode: prof?.mode || "recording",
+        dataset: prof?.datasetJSON || datasetToJSON(knn.getClassifierDataset()),
+        exportedAt: new Date().toISOString()
+      });
+    });
+
+    recImportInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      const obj = JSON.parse(text);
+      const dsObj = obj.dataset ? obj.dataset : obj;
+
+      try {
+        knn.clearAllClasses();
+        knn.setClassifierDataset(jsonToDataset(dsObj));
+        persistActiveProfileDataset();
+        sampleCountEl.textContent = knn.getNumExamples();
+        activeSamplesKpi.textContent = knn.getNumExamples();
+        updateRecorderHeader();
+        alert("Imported into active profile.");
+      } catch (err) {
+        console.error(err);
+        alert("Import failed. File format not recognized.");
+      } finally {
+        recImportInput.value = "";
+      }
+    });
+
+    // Advance overlay buttons (single listeners)
+    advanceStayBtn.addEventListener("click", () => {
+      hideAdvanceOverlay();
+      // keep current letter; user can press Start again if desired
+    });
+
+    advanceContinueBtn.addEventListener("click", () => {
+      // move to next letter
+      if (recLabelIndex < LABELS.length - 1) recLabelIndex++;
+      recStableSince = 0; recPrevVec = null;
+      recPredHistory = [];
+      recTestRawEl.textContent = "—";
+      recTestStableEl.textContent = "—";
+      recTestConfEl.textContent = "—";
+      hideAdvanceOverlay();
+
+      // resume running state (camera still stopped at this point)
+      // user will press Start again (safer), or we can auto-resume:
+      // We'll auto-resume ONLY if video stream is still active (it isn't because we stopped),
+      // so we simply update header.
+      updateRecorderHeader();
+    });
+
+    // -----------------------
+    // Profiles UI
+    // -----------------------
+    profileCreateBtn.addEventListener("click", () => {
+      const res = createProfile(newProfileName.value, newProfileMode.value);
+      if (!res.ok) { alert(res.msg); return; }
+      refreshProfileUI();
+      newProfileName.value = "";
+      alert("Profile created.");
+    });
+
+    profileActivateBtn.addEventListener("click", () => {
+      const sel = profileSelect.value;
+      if (!sel) return;
+      setActiveProfile(sel);
+    });
+
+    profileDeleteBtn.addEventListener("click", () => {
+      const sel = profileSelect.value;
+      if (!sel) return;
+      if (!confirm(`Delete profile "${sel}"? This cannot be undone.`)) return;
+      deleteProfile(sel);
+    });
+
+    switchProfileBtn.addEventListener("click", () => {
+      refreshProfileUI();
+      profileModal.style.display = "flex";
+    });
+    profileModalCloseBtn.addEventListener("click", () => profileModal.style.display = "none");
+
+    profileModalActivateBtn.addEventListener("click", () => {
+      const sel = profileModalSelect.value;
+      if (!sel) return;
+      profileModal.style.display = "none";
+      setActiveProfile(sel);
+    });
+
+    profileModalCreateBtn.addEventListener("click", () => {
+      const res = createProfile(profileModalNewName.value, profileModalNewMode.value);
+      if (!res.ok) { alert(res.msg); return; }
+      profileModal.style.display = "none";
+      setActiveProfile(profileModalNewName.value.trim());
+      profileModalNewName.value = "";
+    });
+
+    // Persist on unload
+    window.addEventListener("beforeunload", () => { try { persistActiveProfileDataset(); } catch {} });
+
+    // -----------------------
+    // Boot
+    // -----------------------
+    ensureDefaultProfiles();
+    refreshProfileUI();
+    setActiveProfile(getActiveProfileName());
     sampleCountEl.textContent = knn.getNumExamples();
+    updateRecorderHeader();
+    applyRecPreset("normal");
+
+    rawLabelEl.textContent = "—";
+    stableLabelEl.textContent = "—";
+    confEl.textContent = "—";
+    handInfoEl.textContent = "—";
   </script>
 </body>
 </html>
